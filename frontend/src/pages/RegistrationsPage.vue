@@ -5,6 +5,7 @@ import { can } from '../auth/session';
 import AppButton from '../components/AppButton.vue';
 import ErrorMessage from '../components/ErrorMessage.vue';
 import PageHeader from '../components/PageHeader.vue';
+import { isEditableMode } from '../registrations/format';
 import RegistrationGrid from '../registrations/RegistrationGrid.vue';
 import RegistrationPanel from '../registrations/RegistrationPanel.vue';
 import SmartPasteDialog from '../registrations/SmartPasteDialog.vue';
@@ -43,17 +44,25 @@ function canEdit(row: Registration) {
   return canEditAny.value;
 }
 
-// Esconde as colunas que não existem no tipo filtrado e os grupos ocultos.
+// Só mostra colunas que alguém precisa preencher no tipo filtrado: campos fixos,
+// calculados ou escolhidos no envio ficam só no painel da linha.
 const columns = computed(() => {
   if (!schema.value) return [];
-  const types: RegistrationType[] = filters.type ? [filters.type as RegistrationType] : ['client', 'smart'];
-  const visible = schema.value.fields.filter(
-    (field) =>
-      !hiddenGroups.value.includes(field.group) && types.some((type) => field[type].mode !== 'hidden'),
-  );
+  const visible = fillableFields.value.filter((field) => !hiddenGroups.value.includes(field.group));
   const name = schema.value.fields.find(({ key }) => key === 'tradeName')!;
   return [name, ...visible.filter(({ key }) => key !== 'tradeName')];
 });
+
+const fillableFields = computed(() => {
+  if (!schema.value) return [];
+  const types: RegistrationType[] = filters.type ? [filters.type as RegistrationType] : ['client', 'smart'];
+  return schema.value.fields.filter((field) => types.some((type) => isEditableMode(field[type])));
+});
+
+// Na lista de "Colunas", só os grupos que têm algo para preencher no tipo filtrado.
+const groupOptions = computed(() =>
+  (schema.value?.groups ?? []).filter((group) => fillableFields.value.some((field) => field.group === group.key)),
+);
 
 const counts = computed(() => {
   const result: Record<string, number> = { draft: 0, ready: 0, approved: 0 };
@@ -163,7 +172,7 @@ onMounted(load);
         Colunas{{ hiddenGroups.length ? ` (${hiddenGroups.length} oculta${hiddenGroups.length > 1 ? 's' : ''})` : '' }}
       </summary>
       <div class="absolute z-30 mt-1 w-60 rounded-md border border-line bg-white p-2 shadow-lg">
-        <label v-for="group in schema.groups" :key="group.key" class="flex items-center gap-2 px-1 py-1">
+        <label v-for="group in groupOptions" :key="group.key" class="flex items-center gap-2 px-1 py-1">
           <input
             type="checkbox"
             :checked="!hiddenGroups.includes(group.key)"

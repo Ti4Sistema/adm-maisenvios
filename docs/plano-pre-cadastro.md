@@ -69,7 +69,7 @@ Legenda — **Obr.**: obrigatório para ficar *Pronto*. **Fixo**: preenchido pel
 | CNPJ de faturamento | Padrão: = CPF/CNPJ | Fixo: = CNPJ | Diferente do documento → ponto de atenção |
 | Limite de crédito | Obr. | Fixo: R$ 30.000,00 | Valor em reais |
 | Seguro | Padrão: 1% | Fixo: 2% | Smart vai com 2% direto na integração, sem o ajuste posterior |
-| Dias de validade da reversa | Padrão: 90 | Padrão: 90 | |
+| Dias de validade da reversa | Padrão: 90 | Fixo: 90 | |
 | Não cobrar custo de postagem | Padrão: não | Fixo: não | |
 | Permitir etiquetas lógicas | Opcional | — | |
 | Boleto separado para a filial | Opcional (só Filial) | — | |

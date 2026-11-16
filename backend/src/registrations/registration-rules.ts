@@ -275,7 +275,7 @@ export const FIELDS: FieldRule[] = [
     group: 'contract',
     input: 'integer',
     client: { mode: 'required', default: 90 },
-    smart: { mode: 'required', default: 90 },
+    smart: fixed(90),
   },
   {
     key: 'skipPostageCost',
