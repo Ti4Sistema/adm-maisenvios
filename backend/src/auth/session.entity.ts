@@ -8,7 +8,7 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
-import { User } from '../users/user.entity';
+import { Administrator } from '../administrators/administrator.entity';
 
 @Entity('sessions')
 @Unique('uq_sessions_token_hash', ['tokenHash'])
@@ -16,9 +16,9 @@ export class Session {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Index('idx_sessions_user')
-  @Column('uuid', { name: 'user_id' })
-  userId: string;
+  @Index('idx_sessions_administrator')
+  @Column('uuid', { name: 'administrator_id' })
+  administratorId: string;
 
   @Column('text', { name: 'token_hash' })
   tokenHash: string;
@@ -29,7 +29,7 @@ export class Session {
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'user_id' })
-  user: User;
+  @ManyToOne(() => Administrator)
+  @JoinColumn({ name: 'administrator_id' })
+  administrator: Administrator;
 }

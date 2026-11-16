@@ -7,13 +7,13 @@ import {
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
-import { UserRole } from '../access/user-role.entity';
+import { AdministratorRole } from '../access/administrator-role.entity';
 import { Auditable } from '../audit/auditable.decorator';
 
-@Auditable({ name: 'user', sensitive: ['passwordHash'] })
-@Entity('users')
-@Unique('uq_users_email', ['email'])
-export class User {
+@Auditable({ name: 'administrator', sensitive: ['passwordHash'] })
+@Entity('administrators')
+@Unique('uq_administrators_email', ['email'])
+export class Administrator {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -35,6 +35,6 @@ export class User {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 
-  @OneToMany(() => UserRole, (userRole) => userRole.user)
-  roles: UserRole[];
+  @OneToMany(() => AdministratorRole, (administratorRole) => administratorRole.administrator)
+  roles: AdministratorRole[];
 }

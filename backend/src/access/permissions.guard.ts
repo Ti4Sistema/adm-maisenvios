@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuditService } from '../audit/audit.service';
-import { AuthenticatedRequest } from '../auth/session-user';
+import { AuthenticatedRequest } from '../auth/session-administrator';
 import { Permission } from './permissions';
 import { REQUIRED_PERMISSIONS } from './require-permission.decorator';
 
@@ -25,7 +25,7 @@ export class PermissionsGuard implements CanActivate {
     if (!required?.length) return true;
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const granted = request.user?.permissions ?? [];
+    const granted = request.administrator?.permissions ?? [];
     if (required.every((permission) => granted.includes(permission))) return true;
 
     await this.audit.record({

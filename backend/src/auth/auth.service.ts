@@ -6,29 +6,29 @@ import { permissionsOf } from '../access/roles';
 import { AuditService } from '../audit/audit.service';
 import { setActor } from '../common/request-context';
 import { env } from '../config/env';
-import { User } from '../users/user.entity';
-import { normalizeEmail } from '../users/normalize-email';
+import { Administrator } from '../administrators/administrator.entity';
+import { normalizeEmail } from '../administrators/normalize-email';
 import { hashPassword, verifyPassword } from './password';
 import { Session } from './session.entity';
-import { SessionUser } from './session-user';
+import { SessionAdministrator } from './session-administrator';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectRepository(Administrator) private readonly administrators: Repository<Administrator>,
     @InjectRepository(Session) private readonly sessions: Repository<Session>,
     private readonly audit: AuditService,
   ) {}
 
   async login(emailInput: string, password: string) {
     const email = normalizeEmail(emailInput);
-    const user = await this.users.findOne({
+    const administrator = await this.administrators.findOne({
       where: { email },
       relations: { roles: true },
     });
 
-    const validPassword = await verifyPassword(password, user?.passwordHash);
-    if (!user?.active || !validPassword) {
+    const validPassword = await verifyPassword(password, administrator?.passwordHash);
+    if (!administrator?.active || !validPassword) {
       await this.audit.record({ action: 'auth.login_failed', metadata: { email } });
       throw new UnauthorizedException('E-mail ou senha inválidos');
     }
@@ -37,20 +37,20 @@ export class AuthService {
 
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + env.sessionTtlHours * 60 * 60 * 1000);
-    await this.sessions.insert({ userId: user.id, tokenHash: hashToken(token), expiresAt });
+    await this.sessions.insert({ administratorId: administrator.id, tokenHash: hashToken(token), expiresAt });
 
-    setActor(user);
-    await this.audit.record({ action: 'auth.login', entity: 'user', entityId: user.id });
-    return { token, expiresAt, user: toSessionUser(user) };
+    setActor(administrator);
+    await this.audit.record({ action: 'auth.login', entity: 'administrator', entityId: administrator.id });
+    return { token, expiresAt, administrator: toSessionAdministrator(administrator) };
   }
 
-  // Lê o banco a cada requisição: desativar usuário ou trocar papel vale na hora.
-  async resolveSession(token: string): Promise<SessionUser | null> {
+  // Lê o banco a cada requisição: desativar administrador ou trocar papel vale na hora.
+  async resolveSession(token: string): Promise<SessionAdministrator | null> {
     const session = await this.sessions.findOne({
       where: { tokenHash: hashToken(token), expiresAt: MoreThan(new Date()) },
-      relations: { user: { roles: true } },
+      relations: { administrator: { roles: true } },
     });
-    return session?.user.active ? toSessionUser(session.user) : null;
+    return session?.administrator.active ? toSessionAdministrator(session.administrator) : null;
   }
 
   async logout(token: string) {
@@ -59,20 +59,20 @@ export class AuthService {
   }
 
   async changePassword(
-    userId: string,
+    administratorId: string,
     currentPassword: string,
     newPassword: string,
     token: string,
   ) {
-    const user = await this.users.findOneByOrFail({ id: userId });
+    const administrator = await this.administrators.findOneByOrFail({ id: administratorId });
 
-    if (!(await verifyPassword(currentPassword, user.passwordHash))) {
+    if (!(await verifyPassword(currentPassword, administrator.passwordHash))) {
       throw new BadRequestException('Senha atual incorreta');
     }
 
-    user.passwordHash = await hashPassword(newPassword);
-    await this.users.save(user);
-    await this.sessions.delete({ userId, tokenHash: Not(hashToken(token)) });
+    administrator.passwordHash = await hashPassword(newPassword);
+    await this.administrators.save(administrator);
+    await this.sessions.delete({ administratorId, tokenHash: Not(hashToken(token)) });
   }
 }
 
@@ -81,12 +81,12 @@ function hashToken(token: string) {
   return createHash('sha256').update(token).digest('hex');
 }
 
-function toSessionUser(user: User): SessionUser {
-  const roles = user.roles.map(({ role }) => role);
+function toSessionAdministrator(administrator: Administrator): SessionAdministrator {
+  const roles = administrator.roles.map(({ role }) => role);
   return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
+    id: administrator.id,
+    name: administrator.name,
+    email: administrator.email,
     roles,
     permissions: permissionsOf(roles),
   };

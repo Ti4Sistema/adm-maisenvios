@@ -94,7 +94,7 @@ onMounted(() => load());
     class="mb-4 grid items-end gap-3 rounded-lg border border-line bg-white p-4 sm:grid-cols-2 xl:grid-cols-5"
     @submit.prevent="load()"
   >
-    <TextField v-model="filters.actorEmail" label="Usuário (e-mail)" />
+    <TextField v-model="filters.actorEmail" label="Administrador (e-mail)" />
     <div>
       <label for="audit-action" class="mb-1 block text-sm font-medium">Ação</label>
       <select

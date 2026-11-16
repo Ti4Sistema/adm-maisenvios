@@ -6,7 +6,7 @@ import { ROLES } from './roles';
 @Controller('roles')
 export class RolesController {
   @Get()
-  @RequirePermission(PERMISSIONS.USERS_READ)
+  @RequirePermission(PERMISSIONS.ADMINISTRATORS_READ)
   list() {
     return Object.entries(ROLES).map(([key, role]) => ({ key, ...role }));
   }

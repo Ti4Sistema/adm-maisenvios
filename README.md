@@ -1,6 +1,6 @@
 # adm-maisenvios
 
-Sistema administrativo da Mais Envios. Vários usuários preenchem os mesmos cadastros em momentos diferentes e, com tudo completo, um administrador autoriza o envio para a API da Mais Envios. Este projeto é isolado do `maisenvios`: não compartilha banco nem código e só se conecta a ele pela API.
+Sistema administrativo da Mais Envios. Vários administradores preenchem os mesmos cadastros em momentos diferentes e, com tudo completo, um administrador autoriza o envio para a API da Mais Envios. Este projeto é isolado do `maisenvios`: não compartilha banco nem código e só se conecta a ele pela API.
 
 | Parte | Stack |
 |---|---|
@@ -76,7 +76,7 @@ financeiro: {
 },
 ```
 
-O papel já aparece na tela de usuários. O `admin` recebe automaticamente toda permissão nova.
+O papel já aparece na tela de administradores. O `admin` recebe automaticamente toda permissão nova.
 
 ## Como auditar uma entidade
 
@@ -88,7 +88,7 @@ Coloque `@Auditable` na entidade e altere sempre com `save()` ou `remove()`:
 export class Cliente {}
 ```
 
-Cada alteração grava usuário, data, IP e valor antigo e novo de cada campo, na mesma transação. Campos em `sensitive` registram só que mudaram. `insert()`, `update()` e `delete()` são recusados nessas entidades, porque escapariam da auditoria.
+Cada alteração grava administrador, data, IP e valor antigo e novo de cada campo, na mesma transação. Campos em `sensitive` registram só que mudaram. `insert()`, `update()` e `delete()` são recusados nessas entidades, porque escapariam da auditoria.
 
 Para eventos que não são alteração de dados, como uma aprovação:
 

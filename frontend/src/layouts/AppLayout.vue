@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 import { RouterLink, RouterView, useRouter } from 'vue-router';
 import { PERMISSIONS } from '../auth/permissions';
-import { can, currentUser, logout } from '../auth/session';
+import { can, currentAdministrator, logout } from '../auth/session';
 
 const router = useRouter();
 const menuOpen = ref(false);
@@ -10,7 +10,7 @@ const menuOpen = ref(false);
 const links = computed(() =>
   [
     { to: '/', label: 'Início', visible: true },
-    { to: '/usuarios', label: 'Usuários', visible: can(PERMISSIONS.USERS_READ) },
+    { to: '/administradores', label: 'Administradores', visible: can(PERMISSIONS.ADMINISTRATORS_READ) },
     { to: '/auditoria', label: 'Auditoria', visible: can(PERMISSIONS.AUDIT_READ) },
     { to: '/conta', label: 'Minha conta', visible: true },
   ].filter((link) => link.visible),
@@ -58,8 +58,8 @@ async function signOut() {
         </nav>
 
         <div class="border-t border-white/15 p-4 text-sm">
-          <p class="truncate font-medium">{{ currentUser?.name }}</p>
-          <p class="truncate text-xs text-white/70">{{ currentUser?.email }}</p>
+          <p class="truncate font-medium">{{ currentAdministrator?.name }}</p>
+          <p class="truncate text-xs text-white/70">{{ currentAdministrator?.email }}</p>
           <button
             type="button"
             class="mt-2 text-xs text-white/85 underline hover:text-white"

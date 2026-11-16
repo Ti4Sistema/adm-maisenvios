@@ -6,13 +6,13 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { DataSource } from 'typeorm';
 import { PERMISSIONS } from './access/permissions';
 import { ROLES } from './access/roles';
-import { UserRole } from './access/user-role.entity';
+import { AdministratorRole } from './access/administrator-role.entity';
 import { AppModule } from './app.module';
 import { AuditLog } from './audit/audit-log.entity';
 import { hashPassword } from './auth/password';
 import { configureApp } from './main';
 import { resetDatabase } from './testing/reset-database';
-import { User } from './users/user.entity';
+import { Administrator } from './administrators/administrator.entity';
 
 const ADMIN = { email: 'admin@teste.com', password: 'senha-do-admin' };
 const OPERATOR = { email: 'operador@teste.com', password: 'senha-do-operador' };
@@ -46,8 +46,8 @@ function lastLog(action: string) {
   return dataSource.manager.findOne(AuditLog, { where: { action }, order: { id: 'DESC' } });
 }
 
-async function createUser(body: object) {
-  const response = await send('POST', '/users', admin, body);
+async function createAdministrator(body: object) {
+  const response = await send('POST', '/administrators', admin, body);
   assert.equal(response.status, 201);
   return (await response.json()) as { id: string };
 }
@@ -60,15 +60,15 @@ before(async () => {
   dataSource = app.get(DataSource);
   await resetDatabase(dataSource);
 
-  const user = await dataSource.manager.save(
-    dataSource.manager.create(User, {
+  const administrator = await dataSource.manager.save(
+    dataSource.manager.create(Administrator, {
       name: 'Admin',
       email: ADMIN.email,
       passwordHash: await hashPassword(ADMIN.password),
     }),
   );
   await dataSource.manager.save(
-    dataSource.manager.create(UserRole, { userId: user.id, role: 'admin' }),
+    dataSource.manager.create(AdministratorRole, { administratorId: administrator.id, role: 'admin' }),
   );
   admin = await login(ADMIN);
 });
@@ -77,8 +77,8 @@ after(() => app.close());
 
 test('a saúde responde sem sessão e o restante exige sessão', async () => {
   assert.equal((await call('/health')).status, 200);
-  assert.equal((await call('/users')).status, 401);
-  assert.equal((await call('/users', 'adm_session=token-falso')).status, 401);
+  assert.equal((await call('/administrators')).status, 401);
+  assert.equal((await call('/administrators', 'adm_session=token-falso')).status, 401);
 });
 
 test('login inválido é recusado e auditado', async () => {
@@ -104,8 +104,8 @@ test('o login grava cookie protegido e nunca o token em texto puro', async () =>
   assert.equal(count, 0);
 });
 
-test('o usuário só acessa o que seus papéis permitem, e a negação é auditada', async () => {
-  await createUser({ name: 'Operador', ...OPERATOR, roles: [] });
+test('o administrador só acessa o que seus papéis permitem, e a negação é auditada', async () => {
+  await createAdministrator({ name: 'Operador', ...OPERATOR, roles: [] });
   const operator = await login(OPERATOR);
 
   const me = (await (await call('/auth/me', operator)).json()) as { permissions: string[] };
@@ -117,21 +117,21 @@ test('o usuário só acessa o que seus papéis permitem, e a negação é audita
   assert.deepEqual(denied?.metadata?.required, [PERMISSIONS.AUDIT_READ]);
 });
 
-test('a resposta de usuários nunca traz a senha', async () => {
-  const body = await (await call('/users', admin)).text();
+test('a resposta de administradores nunca traz a senha', async () => {
+  const body = await (await call('/administrators', admin)).text();
   assert.equal(body.includes('password'), false);
 });
 
 test('a alteração feita pela API registra quem fez, o IP e os valores', async () => {
-  const user = await createUser({
+  const administrator = await createAdministrator({
     name: 'Antigo',
     email: 'auditado@teste.com',
     password: 'senha-inicial',
     roles: [],
   });
-  await send('PATCH', `/users/${user.id}`, admin, { name: 'Novo' });
+  await send('PATCH', `/administrators/${administrator.id}`, admin, { name: 'Novo' });
 
-  const response = await call(`/audit?entity=user&entityId=${user.id}&action=update`, admin);
+  const response = await call(`/audit?entity=administrator&entityId=${administrator.id}&action=update`, admin);
   const { items, total } = (await response.json()) as { items: AuditLog[]; total: number };
   assert.equal(total, 1);
   assert.equal(items[0].actorEmail, ADMIN.email);
@@ -142,57 +142,57 @@ test('a alteração feita pela API registra quem fez, o IP e os valores', async 
 test('atribuir papel é auditado e vale na próxima requisição', async () => {
   ROLES.leitor = { name: 'Leitor', permissions: [PERMISSIONS.AUDIT_READ] };
   const credentials = { email: 'leitor@teste.com', password: 'senha-do-leitor' };
-  const user = await createUser({ name: 'Leitor', ...credentials, roles: [] });
+  const administrator = await createAdministrator({ name: 'Leitor', ...credentials, roles: [] });
   const session = await login(credentials);
   assert.equal((await call('/audit', session)).status, 403);
 
   await dataSource.transaction((manager) =>
-    manager.save(manager.create(UserRole, { userId: user.id, role: 'leitor' })),
+    manager.save(manager.create(AdministratorRole, { administratorId: administrator.id, role: 'leitor' })),
   );
   assert.equal((await call('/audit', session)).status, 200);
   assert.deepEqual((await lastLog('create'))?.changes?.role, { from: null, to: 'leitor' });
 });
 
-test('quem gerencia usuários não concede nem edita acesso acima do seu', async () => {
-  ROLES.gestor = { name: 'Gestor', permissions: [PERMISSIONS.USERS_MANAGE] };
+test('quem gerencia administradores não concede nem edita acesso acima do seu', async () => {
+  ROLES.gestor = { name: 'Gestor', permissions: [PERMISSIONS.ADMINISTRATORS_MANAGE] };
   const credentials = { email: 'gestor@teste.com', password: 'senha-do-gestor' };
-  const user = await createUser({ name: 'Gestor', ...credentials, roles: [] });
+  const administrator = await createAdministrator({ name: 'Gestor', ...credentials, roles: [] });
   await dataSource.transaction((manager) =>
-    manager.save(manager.create(UserRole, { userId: user.id, role: 'gestor' })),
+    manager.save(manager.create(AdministratorRole, { administratorId: administrator.id, role: 'gestor' })),
   );
   const manager = await login(credentials);
 
-  const promote = await send('PATCH', `/users/${user.id}`, manager, { roles: ['admin'] });
+  const promote = await send('PATCH', `/administrators/${administrator.id}`, manager, { roles: ['admin'] });
   assert.equal(promote.status, 403);
 
-  const { id: adminId } = await dataSource.manager.findOneByOrFail(User, { email: ADMIN.email });
-  const takeover = await send('PATCH', `/users/${adminId}`, manager, {
+  const { id: adminId } = await dataSource.manager.findOneByOrFail(Administrator, { email: ADMIN.email });
+  const takeover = await send('PATCH', `/administrators/${adminId}`, manager, {
     password: 'senha-roubada-1',
   });
   assert.equal(takeover.status, 403);
 });
 
-test('desativar usuário encerra o acesso na hora', async () => {
+test('desativar administrador encerra o acesso na hora', async () => {
   const credentials = { email: 'saindo@teste.com', password: 'senha-de-quem-sai' };
-  const user = await createUser({ name: 'Saindo', ...credentials, roles: [] });
+  const administrator = await createAdministrator({ name: 'Saindo', ...credentials, roles: [] });
   const session = await login(credentials);
   assert.equal((await call('/auth/me', session)).status, 200);
 
-  await send('PATCH', `/users/${user.id}`, admin, { active: false });
+  await send('PATCH', `/administrators/${administrator.id}`, admin, { active: false });
   assert.equal((await call('/auth/me', session)).status, 401);
   const response = await send('POST', '/auth/login', undefined, credentials);
   assert.equal(response.status, 401);
 });
 
-test('o sistema nunca fica sem administrador ativo', async () => {
-  const { id } = await dataSource.manager.findOneByOrFail(User, { email: ADMIN.email });
-  assert.equal((await send('PATCH', `/users/${id}`, admin, { active: false })).status, 409);
-  assert.equal((await send('PATCH', `/users/${id}`, admin, { roles: [] })).status, 409);
+test('o sistema nunca fica sem administrador geral ativo', async () => {
+  const { id } = await dataSource.manager.findOneByOrFail(Administrator, { email: ADMIN.email });
+  assert.equal((await send('PATCH', `/administrators/${id}`, admin, { active: false })).status, 409);
+  assert.equal((await send('PATCH', `/administrators/${id}`, admin, { roles: [] })).status, 409);
 });
 
 test('trocar a senha encerra as outras sessões e mantém a atual', async () => {
   const credentials = { email: 'troca@teste.com', password: 'senha-antiga-1' };
-  await createUser({ name: 'Troca', ...credentials, roles: [] });
+  await createAdministrator({ name: 'Troca', ...credentials, roles: [] });
   const current = await login(credentials);
   const other = await login(credentials);
 
@@ -220,7 +220,7 @@ test('sair invalida a sessão', async () => {
 });
 
 test('dados inválidos e campos desconhecidos são recusados', async () => {
-  const short = await send('POST', '/users', admin, {
+  const short = await send('POST', '/administrators', admin, {
     name: 'X',
     email: 'x@teste.com',
     password: 'curta',
@@ -228,7 +228,7 @@ test('dados inválidos e campos desconhecidos são recusados', async () => {
   });
   assert.equal(short.status, 400);
 
-  const unknownRole = await send('POST', '/users', admin, {
+  const unknownRole = await send('POST', '/administrators', admin, {
     name: 'X',
     email: 'x@teste.com',
     password: 'senha-valida-1',
@@ -236,7 +236,7 @@ test('dados inválidos e campos desconhecidos são recusados', async () => {
   });
   assert.equal(unknownRole.status, 400);
 
-  const extraField = await send('PATCH', '/users/00000000-0000-4000-8000-000000000000', admin, {
+  const extraField = await send('PATCH', '/administrators/00000000-0000-4000-8000-000000000000', admin, {
     isAdmin: true,
   });
   assert.equal(extraField.status, 400);

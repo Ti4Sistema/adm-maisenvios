@@ -3,15 +3,15 @@ import { strict as assert } from 'node:assert';
 import { after, before, beforeEach, test } from 'node:test';
 import dataSource from '../database/data-source';
 import { resetDatabase } from '../testing/reset-database';
-import { User } from '../users/user.entity';
+import { Administrator } from '../administrators/administrator.entity';
 import { AuditLog } from './audit-log.entity';
 
 const blockedMessage = /auditável/;
 let sequence = 0;
 
-function newUser() {
+function newAdministrator() {
   sequence += 1;
-  return dataSource.manager.create(User, {
+  return dataSource.manager.create(Administrator, {
     name: 'Fulano',
     email: `fulano${sequence}@teste.com`,
     passwordHash: 'hash-secreto',
@@ -20,7 +20,7 @@ function newUser() {
 
 function logsOf(entityId: string) {
   return dataSource.manager.find(AuditLog, {
-    where: { entity: 'user', entityId },
+    where: { entity: 'administrator', entityId },
     order: { id: 'ASC' },
   });
 }
@@ -37,35 +37,35 @@ beforeEach(() => {
 });
 
 test('registra a criação sem expor campos sensíveis', async () => {
-  const user = await dataSource.manager.save(newUser());
-  const [log] = await logsOf(user.id);
+  const administrator = await dataSource.manager.save(newAdministrator());
+  const [log] = await logsOf(administrator.id);
 
   assert.equal(log.action, 'create');
-  assert.deepEqual(log.changes?.email, { from: null, to: user.email });
+  assert.deepEqual(log.changes?.email, { from: null, to: administrator.email });
   assert.deepEqual(log.changes?.passwordHash, { from: null, to: '[protegido]' });
   assert.equal(JSON.stringify(log.changes).includes('hash-secreto'), false);
 });
 
 test('registra só os campos alterados, com valor antigo e novo', async () => {
-  const user = await dataSource.manager.save(newUser());
-  user.name = 'Beltrano';
-  await dataSource.manager.save(user);
+  const administrator = await dataSource.manager.save(newAdministrator());
+  administrator.name = 'Beltrano';
+  await dataSource.manager.save(administrator);
 
-  const [, log] = await logsOf(user.id);
+  const [, log] = await logsOf(administrator.id);
   assert.equal(log.action, 'update');
   assert.deepEqual(log.changes, { name: { from: 'Fulano', to: 'Beltrano' } });
 });
 
 test('não registra nada quando salva sem mudança', async () => {
-  const user = await dataSource.manager.save(newUser());
-  await dataSource.manager.save(user);
-  assert.equal((await logsOf(user.id)).length, 1);
+  const administrator = await dataSource.manager.save(newAdministrator());
+  await dataSource.manager.save(administrator);
+  assert.equal((await logsOf(administrator.id)).length, 1);
 });
 
 test('registra a remoção com os valores anteriores', async () => {
-  const user = await dataSource.manager.save(newUser());
-  const { id, email } = user;
-  await dataSource.manager.remove(user);
+  const administrator = await dataSource.manager.save(newAdministrator());
+  const { id, email } = administrator;
+  await dataSource.manager.remove(administrator);
 
   const [, log] = await logsOf(id);
   assert.equal(log.action, 'delete');
@@ -73,25 +73,25 @@ test('registra a remoção com os valores anteriores', async () => {
 });
 
 test('desfaz a auditoria junto com a transação', async () => {
-  const user = newUser();
+  const administrator = newAdministrator();
   await assert.rejects(
     dataSource.transaction(async (manager) => {
-      await manager.save(user);
+      await manager.save(administrator);
       throw new Error('falha depois de salvar');
     }),
   );
-  assert.equal((await logsOf(user.id)).length, 0);
+  assert.equal((await logsOf(administrator.id)).length, 0);
 });
 
 test('bloqueia alterações que escapariam da auditoria', async () => {
-  const { id } = await dataSource.manager.save(newUser());
-  const repository = dataSource.getRepository(User);
+  const { id } = await dataSource.manager.save(newAdministrator());
+  const repository = dataSource.getRepository(Administrator);
 
-  await assert.rejects(repository.insert(newUser()), blockedMessage);
+  await assert.rejects(repository.insert(newAdministrator()), blockedMessage);
   await assert.rejects(repository.update({ id }, { name: 'Oculto' }), blockedMessage);
   await assert.rejects(repository.delete({ id }), blockedMessage);
   await assert.rejects(
-    dataSource.transaction((manager) => manager.update(User, { id }, { name: 'Oculto' })),
+    dataSource.transaction((manager) => manager.update(Administrator, { id }, { name: 'Oculto' })),
     blockedMessage,
   );
 

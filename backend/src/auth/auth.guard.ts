@@ -9,7 +9,7 @@ import { setActor } from '../common/request-context';
 import { AuthService } from './auth.service';
 import { IS_PUBLIC } from './public.decorator';
 import { readSessionToken } from './session-cookie';
-import { AuthenticatedRequest } from './session-user';
+import { AuthenticatedRequest } from './session-administrator';
 
 // Aplicado a todas as rotas: só fica sem sessão o que tiver @Public().
 @Injectable()
@@ -28,11 +28,11 @@ export class AuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const token = readSessionToken(request.headers.cookie);
-    const user = token ? await this.auth.resolveSession(token) : null;
-    if (!user) throw new UnauthorizedException('Sessão inválida ou expirada');
+    const administrator = token ? await this.auth.resolveSession(token) : null;
+    if (!administrator) throw new UnauthorizedException('Sessão inválida ou expirada');
 
-    request.user = user;
-    setActor(user);
+    request.administrator = administrator;
+    setActor(administrator);
     return true;
   }
 }
