@@ -7,18 +7,18 @@ import { AuthGuard } from './auth/auth.guard';
 import { AuthModule } from './auth/auth.module';
 import { dataSourceOptions } from './database/data-source';
 import { HealthController } from './health/health.controller';
-import { UsersModule } from './users/users.module';
+import { AdministratorsModule } from './administrators/administrators.module';
 
 @Module({
   imports: [
     TypeOrmModule.forRoot(dataSourceOptions),
     AuditModule,
     AuthModule,
-    UsersModule,
+    AdministratorsModule,
   ],
   controllers: [HealthController],
   providers: [
-    // A ordem importa: a autenticação identifica o usuário que as permissões avaliam.
+    // A ordem importa: a autenticação identifica o administrador que as permissões avaliam.
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],

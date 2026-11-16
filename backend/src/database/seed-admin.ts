@@ -1,9 +1,9 @@
 import dataSource from './data-source';
 import { ADMIN_ROLE } from '../access/roles';
-import { UserRole } from '../access/user-role.entity';
+import { AdministratorRole } from '../access/administrator-role.entity';
 import { hashPassword } from '../auth/password';
-import { normalizeEmail } from '../users/normalize-email';
-import { User } from '../users/user.entity';
+import { normalizeEmail } from '../administrators/normalize-email';
+import { Administrator } from '../administrators/administrator.entity';
 
 async function seedAdmin() {
   const { ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD } = process.env;
@@ -17,17 +17,17 @@ async function seedAdmin() {
   await dataSource.initialize();
   try {
     const email = normalizeEmail(ADMIN_EMAIL);
-    if (await dataSource.manager.existsBy(User, { email })) {
-      console.log(`Usuário ${email} já existe, nada a fazer`);
+    if (await dataSource.manager.existsBy(Administrator, { email })) {
+      console.log(`Administrador ${email} já existe, nada a fazer`);
       return;
     }
 
     const passwordHash = await hashPassword(ADMIN_PASSWORD);
     await dataSource.transaction(async (manager) => {
-      const user = await manager.save(
-        manager.create(User, { name: ADMIN_NAME ?? 'Administrador', email, passwordHash }),
+      const administrator = await manager.save(
+        manager.create(Administrator, { name: ADMIN_NAME ?? 'Administrador', email, passwordHash }),
       );
-      await manager.save(manager.create(UserRole, { userId: user.id, role: ADMIN_ROLE }));
+      await manager.save(manager.create(AdministratorRole, { administratorId: administrator.id, role: ADMIN_ROLE }));
     });
     console.log(`Administrador ${email} criado`);
   } finally {

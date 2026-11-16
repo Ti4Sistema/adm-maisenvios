@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { PERMISSIONS } from './auth/permissions';
-import { can, currentUser, restoreSession } from './auth/session';
+import { can, currentAdministrator, restoreSession } from './auth/session';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -16,9 +16,9 @@ export const router = createRouter({
       children: [
         { path: '', component: () => import('./pages/HomePage.vue') },
         {
-          path: 'usuarios',
-          component: () => import('./pages/UsersPage.vue'),
-          meta: { permission: PERMISSIONS.USERS_READ },
+          path: 'administradores',
+          component: () => import('./pages/AdministratorsPage.vue'),
+          meta: { permission: PERMISSIONS.ADMINISTRATORS_READ },
         },
         {
           path: 'auditoria',
@@ -34,8 +34,8 @@ export const router = createRouter({
 
 router.beforeEach(async (to) => {
   await restoreSession();
-  if (to.meta.public) return currentUser.value ? '/' : true;
-  if (!currentUser.value) return { path: '/login', query: { redirect: to.fullPath } };
+  if (to.meta.public) return currentAdministrator.value ? '/' : true;
+  if (!currentAdministrator.value) return { path: '/login', query: { redirect: to.fullPath } };
   if (to.meta.permission && !can(to.meta.permission)) return '/';
   return true;
 });

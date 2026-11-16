@@ -10,8 +10,11 @@ const ACTIONS: Record<string, string> = {
 };
 
 const ENTITIES: Record<string, string> = {
-  user: 'Usuário',
-  user_role: 'Papel do usuário',
+  administrator: 'Administrador',
+  administrator_role: 'Papel do administrador',
+  // Valores gravados antes da troca de nome: a auditoria não pode ser alterada.
+  user: 'Administrador',
+  user_role: 'Papel do administrador',
 };
 
 const FIELDS: Record<string, string> = {
@@ -20,7 +23,8 @@ const FIELDS: Record<string, string> = {
   passwordHash: 'Senha',
   active: 'Ativo',
   role: 'Papel',
-  userId: 'Usuário',
+  administratorId: 'Administrador',
+  userId: 'Administrador',
   method: 'Método',
   path: 'Rota',
   required: 'Permissão exigida',

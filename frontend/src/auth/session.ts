@@ -2,7 +2,7 @@ import { readonly, ref } from 'vue';
 import { api } from '../api/client';
 import type { Permission } from './permissions';
 
-export interface SessionUser {
+export interface SessionAdministrator {
   id: string;
   name: string;
   email: string;
@@ -10,28 +10,28 @@ export interface SessionUser {
   permissions: Permission[];
 }
 
-const user = ref<SessionUser | null>(null);
+const administrator = ref<SessionAdministrator | null>(null);
 let restoring: Promise<void> | null = null;
 
-export const currentUser = readonly(user);
+export const currentAdministrator = readonly(administrator);
 
 export function can(permission: Permission) {
-  return user.value?.permissions.includes(permission) ?? false;
+  return administrator.value?.permissions.includes(permission) ?? false;
 }
 
 export function restoreSession() {
-  restoring ??= api<SessionUser>('/auth/me', { expectUnauthorized: true })
+  restoring ??= api<SessionAdministrator>('/auth/me', { expectUnauthorized: true })
     .then((me) => {
-      user.value = me;
+      administrator.value = me;
     })
     .catch(() => {
-      user.value = null;
+      administrator.value = null;
     });
   return restoring;
 }
 
 export async function login(email: string, password: string) {
-  user.value = await api<SessionUser>('/auth/login', {
+  administrator.value = await api<SessionAdministrator>('/auth/login', {
     method: 'POST',
     body: { email, password },
     expectUnauthorized: true,
@@ -44,5 +44,5 @@ export async function logout() {
 }
 
 export function clearSession() {
-  user.value = null;
+  administrator.value = null;
 }

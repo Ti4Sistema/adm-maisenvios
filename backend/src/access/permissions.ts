@@ -1,7 +1,7 @@
 // Toda permissão do sistema nasce aqui e é exigida com @RequirePermission.
 export const PERMISSIONS = {
-  USERS_READ: 'users.read',
-  USERS_MANAGE: 'users.manage',
+  ADMINISTRATORS_READ: 'administrators.read',
+  ADMINISTRATORS_MANAGE: 'administrators.manage',
   AUDIT_READ: 'audit.read',
 } as const;
 

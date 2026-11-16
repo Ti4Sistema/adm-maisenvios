@@ -9,7 +9,7 @@ import ErrorMessage from '../components/ErrorMessage.vue';
 import PageHeader from '../components/PageHeader.vue';
 import TextField from '../components/TextField.vue';
 
-interface User {
+interface Administrator {
   id: string;
   name: string;
   email: string;
@@ -22,12 +22,12 @@ interface Role {
   name: string;
 }
 
-const users = ref<User[]>([]);
+const administrators = ref<Administrator[]>([]);
 const roles = ref<Role[]>([]);
 const loadError = ref('');
 
 const dialog = ref<InstanceType<typeof AppDialog>>();
-const editing = ref<User | null>(null);
+const editing = ref<Administrator | null>(null);
 const form = reactive({
   name: '',
   email: '',
@@ -38,7 +38,7 @@ const form = reactive({
 const saveError = ref('');
 const saving = ref(false);
 
-const canManage = computed(() => can(PERMISSIONS.USERS_MANAGE));
+const canManage = computed(() => can(PERMISSIONS.ADMINISTRATORS_MANAGE));
 
 function roleName(key: string) {
   return roles.value.find((role) => role.key === key)?.name ?? key;
@@ -46,8 +46,8 @@ function roleName(key: string) {
 
 async function load() {
   try {
-    [users.value, roles.value] = await Promise.all([
-      api<User[]>('/users'),
+    [administrators.value, roles.value] = await Promise.all([
+      api<Administrator[]>('/administrators'),
       api<Role[]>('/roles'),
     ]);
   } catch (cause) {
@@ -55,15 +55,15 @@ async function load() {
   }
 }
 
-function openForm(user: User | null) {
-  editing.value = user;
+function openForm(administrator: Administrator | null) {
+  editing.value = administrator;
   saveError.value = '';
   Object.assign(form, {
-    name: user?.name ?? '',
-    email: user?.email ?? '',
+    name: administrator?.name ?? '',
+    email: administrator?.email ?? '',
     password: '',
-    active: user?.active ?? true,
-    roles: [...(user?.roles ?? [])],
+    active: administrator?.active ?? true,
+    roles: [...(administrator?.roles ?? [])],
   });
   dialog.value?.open();
 }
@@ -74,7 +74,7 @@ async function save() {
   const { name, email, password, active, roles: selectedRoles } = form;
   try {
     if (editing.value) {
-      await api(`/users/${editing.value.id}`, {
+      await api(`/administrators/${editing.value.id}`, {
         method: 'PATCH',
         body: {
           name,
@@ -85,7 +85,7 @@ async function save() {
         },
       });
     } else {
-      await api('/users', {
+      await api('/administrators', {
         method: 'POST',
         body: { name, email, password, roles: selectedRoles },
       });
@@ -103,8 +103,8 @@ onMounted(load);
 </script>
 
 <template>
-  <PageHeader title="Usuários" description="Quem acessa o sistema e com quais papéis.">
-    <AppButton v-if="canManage" @click="openForm(null)">Novo usuário</AppButton>
+  <PageHeader title="Administradores" description="Quem acessa o sistema e com quais papéis.">
+    <AppButton v-if="canManage" @click="openForm(null)">Novo administrador</AppButton>
   </PageHeader>
 
   <ErrorMessage :message="loadError" />
@@ -121,22 +121,22 @@ onMounted(load);
         </tr>
       </thead>
       <tbody class="divide-y divide-line">
-        <tr v-for="user in users" :key="user.id">
-          <td class="px-4 py-3 font-medium">{{ user.name }}</td>
-          <td class="px-4 py-3 text-muted">{{ user.email }}</td>
+        <tr v-for="administrator in administrators" :key="administrator.id">
+          <td class="px-4 py-3 font-medium">{{ administrator.name }}</td>
+          <td class="px-4 py-3 text-muted">{{ administrator.email }}</td>
           <td class="px-4 py-3">
-            {{ user.roles.map(roleName).join(', ') || 'Sem papel' }}
+            {{ administrator.roles.map(roleName).join(', ') || 'Sem papel' }}
           </td>
           <td class="px-4 py-3">
-            <span :class="user.active ? 'text-success' : 'text-muted'">
-              {{ user.active ? 'Ativo' : 'Inativo' }}
+            <span :class="administrator.active ? 'text-success' : 'text-muted'">
+              {{ administrator.active ? 'Ativo' : 'Inativo' }}
             </span>
           </td>
           <td v-if="canManage" class="px-4 py-3 text-right">
             <button
               type="button"
               class="text-sm font-medium text-brand hover:underline"
-              @click="openForm(user)"
+              @click="openForm(administrator)"
             >
               Editar
             </button>
@@ -146,7 +146,7 @@ onMounted(load);
     </table>
   </div>
 
-  <AppDialog ref="dialog" :title="editing ? 'Editar usuário' : 'Novo usuário'">
+  <AppDialog ref="dialog" :title="editing ? 'Editar administrador' : 'Novo administrador'">
     <form class="space-y-4" @submit.prevent="save">
       <ErrorMessage :message="saveError" />
       <TextField v-model="form.name" label="Nome" required />
@@ -160,7 +160,7 @@ onMounted(load);
         :hint="
           editing
             ? 'Deixe em branco para manter a atual.'
-            : 'Pelo menos 10 caracteres. Oriente o usuário a trocá-la no primeiro acesso.'
+            : 'Pelo menos 10 caracteres. Oriente o administrador a trocá-la no primeiro acesso.'
         "
       />
 
@@ -178,7 +178,7 @@ onMounted(load);
 
       <label v-if="editing" class="flex items-center gap-2 text-sm">
         <input v-model="form.active" type="checkbox" />
-        Usuário ativo
+        Administrador ativo
       </label>
 
       <div class="flex justify-end gap-2 pt-2">

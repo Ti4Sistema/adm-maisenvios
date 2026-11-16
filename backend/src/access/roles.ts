@@ -7,10 +7,10 @@ export interface RoleDefinition {
 
 export const ADMIN_ROLE = 'admin';
 
-// Novos papéis entram aqui: a chave fica gravada em user_roles.role.
+// Novos papéis entram aqui: a chave fica gravada em administrator_roles.role.
 export const ROLES: Record<string, RoleDefinition> = {
   [ADMIN_ROLE]: {
-    name: 'Administrador',
+    name: 'Administrador geral',
     permissions: Object.values(PERMISSIONS),
   },
 };
