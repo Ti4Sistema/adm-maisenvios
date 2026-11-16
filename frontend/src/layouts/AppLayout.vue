@@ -10,6 +10,7 @@ const menuOpen = ref(false);
 const links = computed(() =>
   [
     { to: '/', label: 'Início', visible: true },
+    { to: '/pre-cadastros', label: 'Pré-cadastros', visible: can(PERMISSIONS.REGISTRATIONS_READ) },
     { to: '/administradores', label: 'Administradores', visible: can(PERMISSIONS.ADMINISTRATORS_READ) },
     { to: '/auditoria', label: 'Auditoria', visible: can(PERMISSIONS.AUDIT_READ) },
     { to: '/conta', label: 'Minha conta', visible: true },

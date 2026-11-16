@@ -57,6 +57,18 @@ yarn test
 
 Se o volume do banco já existia antes do `db/init.sql`, crie o banco `adm_maisenvios_test` manualmente.
 
+## Pré-cadastro de clientes
+
+A tela **Pré-cadastros** (`/pre-cadastros`) é uma grade estilo Excel onde a equipe preenche aos poucos os cadastros de **Cliente** e **Smart**. O plano completo e as decisões estão em `docs/plano-pre-cadastro.md`.
+
+- Os campos e as regras de cada tipo (obrigatório, fixo, calculado, escolhido no envio) ficam só em `backend/src/registrations/registration-rules.ts`. O frontend monta a grade a partir de `GET /api/registrations/schema`.
+- A situação é calculada: *Rascunho* enquanto falta algo, *Pronto* quando tudo que é obrigatório está válido. Só o Admin global aprova e edita depois de aprovado.
+- Cada edição envia o valor anterior do campo: se outra pessoa mudou o mesmo campo nesse meio-tempo, a API responde 409 e a tela recarrega a linha.
+- Linhas inteiras copiadas da planilha Smart (colunas A a Z) viram pré-cadastros pelo botão **Colar da planilha Smart** ou com Ctrl+V na grade. O mapa de colunas está em `backend/src/registrations/smart-import.ts`.
+- Papéis: **Admin global** (`admin`), **Editor** (`editor`) e **Leitura** (`reader`).
+
+Para incluir um campo: acrescente em `FIELDS`, crie a coluna na entidade `Registration`, gere a migration e inclua o texto em `frontend/src/audit/labels.ts`.
+
 ## Como adicionar uma permissão
 
 1. Inclua em `PERMISSIONS`, em `backend/src/access/permissions.ts`.

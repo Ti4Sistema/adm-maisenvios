@@ -16,6 +16,11 @@ export const router = createRouter({
       children: [
         { path: '', component: () => import('./pages/HomePage.vue') },
         {
+          path: 'pre-cadastros',
+          component: () => import('./pages/RegistrationsPage.vue'),
+          meta: { permission: PERMISSIONS.REGISTRATIONS_READ },
+        },
+        {
           path: 'administradores',
           component: () => import('./pages/AdministratorsPage.vue'),
           meta: { permission: PERMISSIONS.ADMINISTRATORS_READ },
