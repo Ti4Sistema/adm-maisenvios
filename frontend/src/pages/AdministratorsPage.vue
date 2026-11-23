@@ -109,7 +109,7 @@ onMounted(load);
 
   <ErrorMessage :message="loadError" />
 
-  <div class="overflow-x-auto rounded-lg border border-line bg-white">
+  <div class="overflow-x-auto rounded-2xl border border-line/70 bg-white shadow-sm">
     <table class="w-full min-w-xl text-left text-sm">
       <thead class="border-b border-line text-xs text-muted">
         <tr>
@@ -166,11 +166,7 @@ onMounted(load);
 
       <fieldset>
         <legend class="mb-1 text-sm font-medium">Papéis</legend>
-        <label
-          v-for="role in roles"
-          :key="role.key"
-          class="flex items-center gap-2 py-1 text-sm"
-        >
+        <label v-for="role in roles" :key="role.key" class="flex items-center gap-2 py-1 text-sm">
           <input v-model="form.roles" type="checkbox" :value="role.key" />
           {{ role.name }}
         </label>

@@ -10,8 +10,16 @@ export const ADMIN_ROLE = 'admin';
 // Novos papéis entram aqui: a chave fica gravada em administrator_roles.role.
 export const ROLES: Record<string, RoleDefinition> = {
   [ADMIN_ROLE]: {
-    name: 'Administrador geral',
+    name: 'Admin global',
     permissions: Object.values(PERMISSIONS),
+  },
+  editor: {
+    name: 'Editor',
+    permissions: [PERMISSIONS.REGISTRATIONS_READ, PERMISSIONS.REGISTRATIONS_EDIT],
+  },
+  reader: {
+    name: 'Leitura',
+    permissions: [PERMISSIONS.REGISTRATIONS_READ],
   },
 };
 

@@ -10,7 +10,7 @@ import {
 import { AdministratorRole } from '../access/administrator-role.entity';
 import { Auditable } from '../audit/auditable.decorator';
 
-@Auditable({ name: 'administrator', sensitive: ['passwordHash'] })
+@Auditable({ name: 'administrator', sensitive: ['passwordHash'], describe: (row) => row.name || row.email })
 @Entity('administrators')
 @Unique('uq_administrators_email', ['email'])
 export class Administrator {

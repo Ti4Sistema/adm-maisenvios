@@ -39,6 +39,7 @@ export class AuditSubscriber implements EntitySubscriberInterface<ObjectLiteral>
       entity: options.name,
       entityId: entityId(metadata, entity),
       changes: diff(options, dataColumns(metadata), undefined, entity),
+      metadata: describe(options, entity),
     });
   }
 
@@ -51,6 +52,7 @@ export class AuditSubscriber implements EntitySubscriberInterface<ObjectLiteral>
       entity: options.name,
       entityId: entityId(metadata, databaseEntity),
       changes: diff(options, updatedColumns, databaseEntity, entity),
+      metadata: describe(options, { ...databaseEntity, ...entity }),
     });
   }
 
@@ -62,6 +64,7 @@ export class AuditSubscriber implements EntitySubscriberInterface<ObjectLiteral>
       entity: options.name,
       entityId: entityId(metadata, databaseEntity),
       changes: diff(options, dataColumns(metadata), databaseEntity, undefined),
+      metadata: describe(options, databaseEntity),
     });
   }
 }
@@ -79,6 +82,11 @@ function assertAuditable(
       `${metadata.name} é auditável: altere com save() ou remove(), nunca com insert(), update() ou delete()`,
     );
   }
+}
+
+function describe(options: AuditableOptions, entity: ObjectLiteral | undefined) {
+  const item = entity && options.describe?.(entity);
+  return item ? { item } : undefined;
 }
 
 function dataColumns({ columns }: EntityMetadata) {

@@ -35,21 +35,10 @@ async function submit() {
 <template>
   <PageHeader title="Minha conta" description="Altere a senha usada para entrar." />
 
-  <form
-    class="max-w-md space-y-4 rounded-lg border border-line bg-white p-6"
-    @submit.prevent="submit"
-  >
+  <form class="max-w-md space-y-4 rounded-2xl border border-line/70 bg-white shadow-sm p-6" @submit.prevent="submit">
     <ErrorMessage :message="error" />
-    <p v-if="saved" role="status" class="text-sm text-success">
-      Senha alterada. As outras sessões foram encerradas.
-    </p>
-    <TextField
-      v-model="currentPassword"
-      label="Senha atual"
-      type="password"
-      autocomplete="current-password"
-      required
-    />
+    <p v-if="saved" role="status" class="text-sm text-success">Senha alterada. As outras sessões foram encerradas.</p>
+    <TextField v-model="currentPassword" label="Senha atual" type="password" autocomplete="current-password" required />
     <TextField
       v-model="newPassword"
       label="Nova senha"

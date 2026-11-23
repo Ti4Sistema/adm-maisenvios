@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { dataSourceOptions } from './database/data-source';
 import { HealthController } from './health/health.controller';
 import { AdministratorsModule } from './administrators/administrators.module';
+import { RegistrationsModule } from './registrations/registrations.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AdministratorsModule } from './administrators/administrators.module';
     AuditModule,
     AuthModule,
     AdministratorsModule,
+    RegistrationsModule,
   ],
   controllers: [HealthController],
   providers: [
