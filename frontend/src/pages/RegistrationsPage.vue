@@ -5,19 +5,22 @@ import { can } from '../auth/session';
 import AppButton from '../components/AppButton.vue';
 import ErrorMessage from '../components/ErrorMessage.vue';
 import PageHeader from '../components/PageHeader.vue';
-import { isEditableMode } from '../registrations/format';
+import ClientPasteDialog from '../registrations/ClientPasteDialog.vue';
+import RegistrationCards from '../registrations/RegistrationCards.vue';
 import RegistrationGrid from '../registrations/RegistrationGrid.vue';
 import RegistrationPanel from '../registrations/RegistrationPanel.vue';
 import SmartPasteDialog from '../registrations/SmartPasteDialog.vue';
 import type { Registration, RegistrationType } from '../registrations/types';
 import { useRegistrations } from '../registrations/useRegistrations';
 
-const GROUPS_KEY = 'pre-cadastro:grupos-ocultos';
+// Clientes e Smart têm páginas próprias no menu; o tipo vem da rota.
+const props = defineProps<{ type: RegistrationType }>();
 
 const {
   schema,
   rows,
   filters,
+  hiddenCount,
   loading,
   loadError,
   notice,
@@ -27,13 +30,15 @@ const {
   save,
   create,
   remove,
+  setHidden,
   approve,
   unapprove,
 } = useRegistrations();
+filters.type = props.type;
 
 const pasteDialog = ref<InstanceType<typeof SmartPasteDialog>>();
+const clientDialog = ref<InstanceType<typeof ClientPasteDialog>>();
 const openId = ref<string | null>(null);
-const hiddenGroups = ref<string[]>(readHiddenGroups());
 
 const canEditAny = computed(() => can(PERMISSIONS.REGISTRATIONS_EDIT));
 const canApprove = computed(() => can(PERMISSIONS.REGISTRATIONS_APPROVE));
@@ -44,46 +49,18 @@ function canEdit(row: Registration) {
   return canEditAny.value;
 }
 
-// Só mostra colunas que alguém precisa preencher no tipo filtrado: campos fixos,
-// calculados ou escolhidos no envio ficam só no painel da linha.
+// A lista mostra só o essencial; o resto se vê e se preenche clicando na linha.
+const COLUMN_KEYS = ['tradeName', 'legalName', 'document', 'adminLogin'];
 const columns = computed(() => {
   if (!schema.value) return [];
-  const visible = fillableFields.value.filter((field) => !hiddenGroups.value.includes(field.group));
-  const name = schema.value.fields.find(({ key }) => key === 'tradeName')!;
-  return [name, ...visible.filter(({ key }) => key !== 'tradeName')];
+  const byKey = new Map(schema.value.fields.map((field) => [field.key, field]));
+  return COLUMN_KEYS.map((key) => byKey.get(key)).filter((field) => field !== undefined);
 });
-
-const fillableFields = computed(() => {
-  if (!schema.value) return [];
-  const types: RegistrationType[] = filters.type ? [filters.type as RegistrationType] : ['client', 'smart'];
-  return schema.value.fields.filter((field) => types.some((type) => isEditableMode(field[type])));
-});
-
-// Na lista de "Colunas", só os grupos que têm algo para preencher no tipo filtrado.
-const groupOptions = computed(() =>
-  (schema.value?.groups ?? []).filter((group) => fillableFields.value.some((field) => field.group === group.key)),
-);
 
 const counts = computed(() => {
   const result: Record<string, number> = { draft: 0, ready: 0, approved: 0 };
   for (const row of rows.value) result[row.status] += 1;
   return result;
-});
-
-function readHiddenGroups(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem(GROUPS_KEY) ?? '[]');
-  } catch {
-    return [];
-  }
-}
-
-watch(hiddenGroups, (groups) => {
-  try {
-    localStorage.setItem(GROUPS_KEY, JSON.stringify(groups));
-  } catch {
-    // Sem armazenamento local, a preferência vale só nesta visita.
-  }
 });
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -94,7 +71,18 @@ watch(
     searchTimer = setTimeout(load, 300);
   },
 );
-watch(() => [filters.type, filters.status], load);
+watch(() => [filters.type, filters.status, filters.hidden], load);
+const showingHidden = computed(() => filters.hidden === 'true');
+
+// Trocar entre Clientes e Smart no menu reaproveita esta página.
+watch(
+  () => props.type,
+  (type) => {
+    openId.value = null;
+    filters.hidden = '';
+    filters.type = type;
+  },
+);
 
 async function add(type: RegistrationType) {
   const view = await create(type);
@@ -109,12 +97,46 @@ async function onRemove() {
   if (openRow.value && (await remove(openRow.value))) openId.value = null;
 }
 
+function confirmRemove(row: Registration) {
+  const name = (row.values.tradeName as string) || (row.values.legalName as string) || 'este pré-cadastro';
+  if (window.confirm(`Excluir "${name}"? A exclusão não pode ser desfeita (fica só o registro na auditoria).`)) {
+    remove(row);
+  }
+}
+
+async function onHide(row: Registration, hidden: boolean) {
+  if ((await setHidden(row, hidden)) && openId.value === row.id) openId.value = null;
+}
+
 function openPaste(text = '') {
+  if (props.type !== 'smart') {
+    notify('error', 'Para colar linhas da planilha Smart, abra Pré-cadastros › Smart no menu');
+    return;
+  }
   if (!canEditAny.value) {
     notify('error', 'Você não tem permissão para criar pré-cadastros');
     return;
   }
   pasteDialog.value?.open(text);
+}
+
+function openClientPaste(text = '') {
+  if (props.type !== 'client') {
+    notify('error', 'Para colar a ficha de um cliente, abra Pré-cadastros › Clientes no menu');
+    return;
+  }
+  if (!canEditAny.value) {
+    notify('error', 'Você não tem permissão para criar pré-cadastros');
+    return;
+  }
+  clientDialog.value?.open(text);
+}
+
+// Depois de criar pela ficha, abre o painel para completar o que falta.
+async function onClientCreated(id: string) {
+  notify('info', 'Pré-cadastro criado a partir da ficha');
+  await load();
+  openId.value = id;
 }
 
 async function onCreated(count: number) {
@@ -127,89 +149,93 @@ onMounted(load);
 
 <template>
   <PageHeader
-    title="Pré-cadastros"
+    :title="type === 'smart' ? 'Pré-cadastros Smart' : 'Pré-cadastros de clientes'"
     description="Preencha aos poucos: a linha fica Pronta quando todos os campos obrigatórios estiverem completos, e o Admin global aprova o envio."
   >
     <div v-if="canEditAny" class="flex flex-wrap gap-2">
-      <AppButton variant="secondary" @click="openPaste()">Colar da planilha Smart</AppButton>
-      <AppButton variant="secondary" @click="add('smart')">Novo Smart</AppButton>
-      <AppButton @click="add('client')">Novo Cliente</AppButton>
+      <template v-if="type === 'smart'">
+        <AppButton variant="secondary" @click="openPaste()">Colar da planilha</AppButton>
+        <AppButton @click="add('smart')">Novo Smart</AppButton>
+      </template>
+      <template v-else>
+        <AppButton variant="secondary" @click="openClientPaste()">Colar ficha</AppButton>
+        <AppButton @click="add('client')">Novo Cliente</AppButton>
+      </template>
     </div>
   </PageHeader>
 
   <ErrorMessage :message="loadError" />
 
-  <div v-if="schema" class="mb-3 flex flex-wrap items-center gap-2 text-sm">
-    <div class="inline-flex overflow-hidden rounded-md border border-line bg-white">
-      <button
-        v-for="option in [{ key: '', label: 'Todos' }, ...schema.types]"
-        :key="option.key"
-        type="button"
-        class="px-3 py-1.5"
-        :class="filters.type === option.key ? 'bg-brand text-white' : 'hover:bg-surface'"
-        @click="filters.type = option.key"
-      >
-        {{ option.label }}
+  <section v-if="schema" class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-black/5 md:p-4">
+    <div class="mb-3 flex flex-wrap items-center gap-2 text-sm">
+      <select v-model="filters.status" class="rounded-lg border border-line bg-white px-2 py-1.5" aria-label="Situação">
+        <option value="">Todas as situações</option>
+        <option v-for="status in schema.statuses" :key="status.key" :value="status.key">
+          {{ status.label }} ({{ counts[status.key] }})
+        </option>
+      </select>
+
+      <input
+        v-model="filters.search"
+        type="search"
+        :placeholder="type === 'smart' ? 'Buscar nome, CNPJ ou master' : 'Buscar nome ou CPF/CNPJ'"
+        class="w-full rounded-lg border border-line bg-surface sm:w-64 px-3 py-1.5 focus:border-brand focus:bg-white focus:outline-none"
+      />
+
+      <span class="ml-auto text-muted">
+        {{ rows.length }} cadastro(s) · {{ counts.ready }} pronto(s) · {{ counts.approved }} aprovado(s)
+        <span v-if="loading"> · carregando…</span>
+        <!-- Link discreto para a lista dos ocultados. -->
+        <button
+          v-if="!showingHidden && hiddenCount > 0"
+          type="button"
+          class="ml-2 text-xs text-muted underline decoration-dotted hover:text-ink"
+          @click="filters.hidden = 'true'"
+        >
+          Ocultos ({{ hiddenCount }})
+        </button>
+      </span>
+    </div>
+
+    <div
+      v-if="showingHidden"
+      class="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2 text-sm"
+    >
+      <span>
+        <strong>Pré-cadastros ocultos.</strong> Eles não aparecem na lista principal. Passe o mouse na linha para
+        mostrar de novo ou excluir.
+      </span>
+      <button type="button" class="ml-auto font-medium text-brand hover:underline" @click="filters.hidden = ''">
+        Voltar para a lista
       </button>
     </div>
 
-    <select v-model="filters.status" class="rounded-md border border-line bg-white px-2 py-1.5" aria-label="Situação">
-      <option value="">Todas as situações</option>
-      <option v-for="status in schema.statuses" :key="status.key" :value="status.key">
-        {{ status.label }} ({{ counts[status.key] }})
-      </option>
-    </select>
+    <!-- No celular, cartões no lugar da grade. -->
+    <RegistrationCards v-if="schema" class="md:hidden" :schema="schema" :rows="rows" @open="openId = $event.id" />
 
-    <input
-      v-model="filters.search"
-      type="search"
-      placeholder="Buscar nome, CNPJ ou master"
-      class="w-64 rounded-md border border-line bg-white px-3 py-1.5 focus:border-brand focus:outline-none"
+    <RegistrationGrid
+      v-if="schema"
+      :key="type"
+      class="hidden md:block"
+      :schema="schema"
+      :rows="rows"
+      :columns="columns"
+      :saving="saving"
+      :can-edit="canEdit"
+      @save="onSave"
+      @open="openId = $event.id"
+      @hide="onHide"
+      @remove="confirmRemove"
+      @smart-paste="openPaste"
+      @form-paste="openClientPaste"
+      @notify="notify('info', $event)"
     />
 
-    <details class="relative">
-      <summary class="cursor-pointer list-none rounded-md border border-line bg-white px-3 py-1.5 hover:bg-surface">
-        Colunas{{ hiddenGroups.length ? ` (${hiddenGroups.length} oculta${hiddenGroups.length > 1 ? 's' : ''})` : '' }}
-      </summary>
-      <div class="absolute z-30 mt-1 w-60 rounded-md border border-line bg-white p-2 shadow-lg">
-        <label v-for="group in groupOptions" :key="group.key" class="flex items-center gap-2 px-1 py-1">
-          <input
-            type="checkbox"
-            :checked="!hiddenGroups.includes(group.key)"
-            @change="
-              hiddenGroups = hiddenGroups.includes(group.key)
-                ? hiddenGroups.filter((key) => key !== group.key)
-                : [...hiddenGroups, group.key]
-            "
-          />
-          {{ group.label }}
-        </label>
-      </div>
-    </details>
-
-    <span class="ml-auto text-muted">
-      {{ rows.length }} cadastro(s) · {{ counts.ready }} pronto(s) · {{ counts.approved }} aprovado(s)
-      <span v-if="loading"> · carregando…</span>
-    </span>
-  </div>
-
-  <RegistrationGrid
-    v-if="schema"
-    :schema="schema"
-    :rows="rows"
-    :columns="columns"
-    :saving="saving"
-    :can-edit="canEdit"
-    @save="onSave"
-    @open="openId = $event.id"
-    @smart-paste="openPaste"
-    @notify="notify('info', $event)"
-  />
-
-  <p v-if="schema" class="mt-2 text-xs text-muted">
-    Clique numa célula e digite, ou use Enter para editar. Setas e Tab navegam, Delete apaga, Ctrl+C/Ctrl+V copiam e
-    colam blocos como no Excel. Células cinza são fixas ou calculadas; em vermelho, obrigatórias.
-  </p>
+    <p class="mt-2 hidden text-xs text-muted md:block">
+      Clique na situação de uma linha para ver e preencher todos os dados do cadastro. Nas células, dá para digitar
+      direto ou colar com Ctrl+V, como no Excel.
+    </p>
+  </section>
 
   <RegistrationPanel
     v-if="schema && openRow"
@@ -220,11 +246,13 @@ onMounted(load);
     @save="onSave(openRow, $event)"
     @approve="approve(openRow)"
     @unapprove="unapprove(openRow)"
+    @hide="onHide(openRow, $event)"
     @remove="onRemove"
     @close="openId = null"
   />
 
   <SmartPasteDialog v-if="schema" ref="pasteDialog" :schema="schema" @created="onCreated" />
+  <ClientPasteDialog v-if="schema" ref="clientDialog" :schema="schema" @created="onClientCreated" />
 
   <div
     v-if="notice"

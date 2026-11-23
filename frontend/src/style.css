@@ -3,15 +3,28 @@
 @theme {
   --color-brand: #22418d;
   --color-brand-dark: #1a3270;
-  --color-accent: #f6921e;
-  --color-ink: #303133;
-  --color-muted: #606266;
-  --color-line: #e4e7ed;
-  --color-surface: #f5f7fa;
+  --color-accent: #f47b20;
+  --color-accent-dark: #e06a12;
+  --color-ink: #1f2433;
+  --color-muted: #5f6577;
+  --color-line: #e4e7ef;
+  --color-surface: #f2f4f9;
   --color-success: #2e7d32;
   --color-danger: #c8322f;
 }
 
 body {
   @apply bg-surface text-ink antialiased;
+}
+
+/* Faixa azul do topo, com o brilho laranja à direita (mesmo visual do portal). */
+@utility bg-hero {
+  background-color: #1b2a78;
+  background-image:
+    radial-gradient(ellipse 30% 70% at 96% 20%, rgb(244 123 32 / 0.55), transparent 70%),
+    radial-gradient(ellipse 45% 90% at 78% 0%, rgb(126 96 196 / 0.45), transparent 70%),
+    linear-gradient(105deg, #18287a 0%, #22378f 45%, #33408f 75%, #4b468c 100%);
+  background-attachment: fixed;
+  background-size: 100vw 20rem;
+  background-repeat: no-repeat;
 }

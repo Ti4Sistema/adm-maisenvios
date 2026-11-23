@@ -18,12 +18,9 @@ const COLUMN = {
   phone: 25, // Z
 } as const;
 
-const BILLING_WORDS: [string, string][] = [
+export const BILLING_WORDS: [string, string][] = [
   ['MENSAL', 'Faturamento Mensal'],
   ['QUINZ', 'Faturamento Quinzenal'],
-  ['SEMAN', 'Faturamento Semanal'],
-  ['DIA', 'Faturamento Diário'],
-  ['VISTA', 'À VISTA'],
 ];
 
 export interface MappedSmartRow {

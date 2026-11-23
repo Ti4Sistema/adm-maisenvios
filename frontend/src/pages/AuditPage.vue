@@ -75,6 +75,39 @@ function actorLabel(log: AuditLog) {
   return log.action === 'auth.login_failed' ? 'Não identificado' : 'Sistema';
 }
 
+// Nome do item: gravado em metadata.item; nos registros antigos, tirado dos campos.
+function itemName(log: AuditLog) {
+  if (typeof log.metadata?.item === 'string') return log.metadata.item;
+  for (const key of ['tradeName', 'legalName', 'name', 'email']) {
+    const change = log.changes?.[key];
+    const value = change?.to ?? change?.from;
+    if (typeof value === 'string' && value) return value;
+  }
+  return log.entity === 'registration' ? 'sem nome preenchido' : '';
+}
+
+const CODES: Record<string, Record<string, string>> = {
+  type: { client: 'Cliente', smart: 'Smart' },
+  status: { draft: 'Rascunho', ready: 'Pronto', approved: 'Aprovado' },
+};
+
+function fieldValue(field: string, value: unknown) {
+  return typeof value === 'string' && CODES[field]?.[value] ? CODES[field][value] : formatValue(value);
+}
+
+// Criar mostra só o que foi preenchido; remover, só o que existia. Alterar mostra antes → depois.
+function visibleChanges(log: AuditLog) {
+  return Object.entries(log.changes ?? {}).filter(([, change]) => {
+    if (log.action === 'create') return !isEmpty(change.to);
+    if (log.action === 'delete') return !isEmpty(change.from);
+    return true;
+  });
+}
+
+function isEmpty(value: unknown) {
+  return value === null || value === undefined || value === '' || (Array.isArray(value) && !value.length);
+}
+
 function formatValue(value: unknown) {
   if (value === null || value === undefined || value === '') return 'vazio';
   if (typeof value === 'boolean') return value ? 'Sim' : 'Não';
@@ -91,7 +124,7 @@ onMounted(() => load());
   />
 
   <form
-    class="mb-4 grid items-end gap-3 rounded-lg border border-line bg-white p-4 sm:grid-cols-2 xl:grid-cols-5"
+    class="mb-4 grid items-end gap-3 rounded-2xl border border-line/70 bg-white shadow-sm p-4 sm:grid-cols-2 xl:grid-cols-5"
     @submit.prevent="load()"
   >
     <TextField v-model="filters.actorEmail" label="Administrador (e-mail)" />
@@ -115,7 +148,7 @@ onMounted(() => load());
 
   <ErrorMessage :message="error" class="mb-4" />
 
-  <div class="overflow-x-auto rounded-lg border border-line bg-white">
+  <div class="overflow-x-auto rounded-2xl border border-line/70 bg-white shadow-sm">
     <table class="w-full min-w-lg text-left text-sm">
       <thead class="border-b border-line text-xs text-muted">
         <tr>
@@ -134,7 +167,10 @@ onMounted(() => load());
             </td>
             <td class="px-4 py-3">{{ actorLabel(log) }}</td>
             <td class="px-4 py-3">{{ actionLabel(log.action) }}</td>
-            <td class="px-4 py-3">{{ log.entity ? entityLabel(log.entity) : '-' }}</td>
+            <td class="px-4 py-3">
+              {{ log.entity ? entityLabel(log.entity) : '-' }}
+              <span v-if="itemName(log)" class="block text-xs text-muted">{{ itemName(log) }}</span>
+            </td>
             <td class="px-4 py-3 text-right">
               <button
                 type="button"
@@ -157,13 +193,18 @@ onMounted(() => load());
                   <dt class="font-medium">IP:</dt>
                   <dd>{{ log.ip }}</dd>
                 </div>
-                <div v-for="(change, field) in log.changes" :key="field" class="flex gap-2">
+                <p v-if="log.action === 'delete'" class="pt-1 font-medium text-muted">Dados no momento da remoção:</p>
+                <div v-for="[field, change] in visibleChanges(log)" :key="field" class="flex gap-2">
                   <dt class="font-medium">{{ fieldLabel(String(field)) }}:</dt>
                   <dd class="break-all">
-                    {{ formatValue(change.from) }} → {{ formatValue(change.to) }}
+                    <template v-if="log.action === 'create'">{{ fieldValue(field, change.to) }}</template>
+                    <template v-else-if="log.action === 'delete'">{{ fieldValue(field, change.from) }}</template>
+                    <template v-else
+                      >{{ fieldValue(field, change.from) }} → {{ fieldValue(field, change.to) }}</template
+                    >
                   </dd>
                 </div>
-                <div v-for="(value, key) in log.metadata" :key="key" class="flex gap-2">
+                <div v-for="(value, key) in log.metadata" v-show="key !== 'item'" :key="key" class="flex gap-2">
                   <dt class="font-medium">{{ fieldLabel(String(key)) }}:</dt>
                   <dd class="break-all">{{ formatValue(value) }}</dd>
                 </div>
@@ -172,9 +213,7 @@ onMounted(() => load());
           </tr>
         </template>
         <tr v-if="!logs.length && !loading">
-          <td colspan="5" class="px-4 py-8 text-center text-muted">
-            Nenhum registro encontrado.
-          </td>
+          <td colspan="5" class="px-4 py-8 text-center text-muted">Nenhum registro encontrado.</td>
         </tr>
       </tbody>
     </table>
@@ -183,12 +222,8 @@ onMounted(() => load());
   <div class="mt-4 flex items-center justify-between gap-3 text-sm text-muted">
     <p>{{ total }} registro(s), página {{ page }} de {{ totalPages }}</p>
     <div class="flex gap-2">
-      <AppButton variant="secondary" :disabled="page <= 1" @click="load(page - 1)">
-        Anterior
-      </AppButton>
-      <AppButton variant="secondary" :disabled="page >= totalPages" @click="load(page + 1)">
-        Próxima
-      </AppButton>
+      <AppButton variant="secondary" :disabled="page <= 1" @click="load(page - 1)"> Anterior </AppButton>
+      <AppButton variant="secondary" :disabled="page >= totalPages" @click="load(page + 1)"> Próxima </AppButton>
     </div>
   </div>
 </template>

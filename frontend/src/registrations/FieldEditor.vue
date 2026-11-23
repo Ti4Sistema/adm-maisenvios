@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, useId, watch } from 'vue';
-import { editText, servicesFromText } from './format';
+import { editText, servicesFromText, withCreditMargin } from './format';
 import type { FieldValue, SchemaField } from './types';
 
 export type Move = 'down' | 'right' | 'left' | 'none';
@@ -37,9 +37,12 @@ const options = computed(() =>
     : (props.field.options ?? []),
 );
 
-watch(original, (text) => {
+// Valor novo vindo do servidor (ex.: rua preenchida pelo CEP). Se o campo está com
+// o cursor mas a pessoa não digitou nada nele, mostra o valor novo; senão, ao sair
+// do campo, o texto antigo seria salvo por cima do que o CEP preencheu.
+watch(original, (text, previous) => {
   pending = null;
-  if (!focused.value) draft.value = text;
+  if (!focused.value || draft.value === previous) draft.value = text;
 });
 
 onMounted(async () => {
@@ -59,7 +62,14 @@ function finish(move: Move) {
     return;
   }
   pending = text;
-  const to = props.field.input === 'services' ? servicesFromText(text, props.value) : text;
+  let to: unknown = text;
+  if (props.field.input === 'services') to = servicesFromText(text, props.value);
+  // Na Smart o limite é fixo (não editável), então isto só acontece no cadastro de clientes.
+  else if (props.field.key === 'creditLimit' && text) {
+    to = withCreditMargin(text);
+    // Mostra já o valor com os 50%; assim, sair do campo depois do Enter não soma de novo.
+    draft.value = pending = to as string;
+  }
   emit('commit', to, move);
 }
 

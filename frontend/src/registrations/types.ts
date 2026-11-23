@@ -29,6 +29,10 @@ export interface SchemaField {
   options?: { value: string; label: string }[];
   suggestions?: string[];
   hint?: string;
+  // Só aparece quando este Sim/Não estiver ligado (ex.: campos da malha).
+  shownWhen?: string;
+  // Campo pouco usado: aparece recolhido até alguém abrir.
+  rare?: boolean;
   client: TypeRule;
   smart: TypeRule;
 }
@@ -38,6 +42,12 @@ export interface Schema {
   statuses: { key: RegistrationStatus; label: string }[];
   groups: { key: string; label: string }[];
   services: { code: string; name: string }[];
+  // Serviços que cada tipo sempre tem: não dá para remover.
+  fixedServices: Record<RegistrationType, string[]>;
+  // Serviços sem spread: só a malha pode ser preenchida neles.
+  noSpreadServices: string[];
+  // Únicos serviços que aceitam Malha %.
+  malhaServices: string[];
   fields: SchemaField[];
 }
 
@@ -57,6 +67,8 @@ export interface Registration {
   warnings: Issue[];
   approvedAt: string | null;
   approvedBy: { id: string; name: string } | null;
+  // Preenchido quando o pré-cadastro foi ocultado da lista principal.
+  hiddenAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

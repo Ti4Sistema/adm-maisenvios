@@ -48,6 +48,63 @@ export const STATES = [
   'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ];
 
+const STATE_NAMES: Record<string, string> = {
+  ACRE: 'AC', ALAGOAS: 'AL', AMAPA: 'AP', AMAZONAS: 'AM', BAHIA: 'BA', CEARA: 'CE',
+  'DISTRITO FEDERAL': 'DF', BRASILIA: 'DF', 'ESPIRITO SANTO': 'ES', GOIAS: 'GO', MARANHAO: 'MA',
+  'MATO GROSSO': 'MT', 'MATO GROSSO DO SUL': 'MS', 'MINAS GERAIS': 'MG', PARA: 'PA', PARAIBA: 'PB',
+  PARANA: 'PR', PERNAMBUCO: 'PE', PIAUI: 'PI', 'RIO DE JANEIRO': 'RJ', 'RIO GRANDE DO NORTE': 'RN',
+  'RIO GRANDE DO SUL': 'RS', RONDONIA: 'RO', RORAIMA: 'RR', 'SANTA CATARINA': 'SC', 'SAO PAULO': 'SP',
+  SERGIPE: 'SE', TOCANTINS: 'TO',
+};
+
+// Converte "São Paulo", "sp", "Estado do Rio de Janeiro" ou "SP - São Paulo" na
+// sigla. Se não reconhecer, devolve o texto em maiúsculas (e a regra acusa UF inválida).
+export function parseState(raw: string): string {
+  const text = fold(raw)
+    .replace(/[^A-Z ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (STATES.includes(text)) return text;
+  const name = text.replace(/^ESTADO (DE|DO|DA) /, '');
+  if (STATE_NAMES[name]) return STATE_NAMES[name];
+  // "SP SAO PAULO" ou "SAO PAULO SP": vale a sigla se ela bater com o nome ao lado.
+  const codes = text.split(' ').filter((word) => STATES.includes(word));
+  if (codes.length === 1) {
+    const rest = text.split(' ').filter((word) => word !== codes[0]).join(' ');
+    if (!rest || STATE_NAMES[rest] === codes[0]) return codes[0];
+  }
+  // Nome com uma letra errada ("SAO PAULI", "PERNANBUCO"): vale o estado mais
+  // parecido. Só para nomes compridos, para não confundir PARA com PARANA.
+  if (name.length >= 6) {
+    const close = Object.keys(STATE_NAMES).filter((known) => known.length >= 6 && oneEditApart(name, known));
+    if (close.length === 1) return STATE_NAMES[close[0]];
+  }
+  return raw.trim().toUpperCase();
+}
+
+// Diferença de no máximo uma letra (trocada, a mais ou a menos).
+function oneEditApart(a: string, b: string) {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  let j = 0;
+  let edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      i++;
+      j++;
+      continue;
+    }
+    if (++edits > 1) return false;
+    if (a.length > b.length) i++;
+    else if (b.length > a.length) j++;
+    else {
+      i++;
+      j++;
+    }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1;
+}
+
 // Aceita "30.000,00", "30000", "R$ 30.000", "1.5" e devolve o número.
 export function parseDecimal(raw: string): number | null {
   let text = raw.replace(/R\$|%|\s/gi, '');
@@ -84,9 +141,8 @@ export function words(value: string) {
 }
 
 const COMPLEMENT_WORDS = [
-  'APTO', 'APT', 'AP', 'APARTAMENTO', 'BLOCO', 'BL', 'CASA', 'SALA', 'SL', 'LOJA', 'LJ',
-  'LOTE', 'LT', 'QUADRA', 'QD', 'CONJUNTO', 'CJ', 'ANDAR', 'FUNDOS', 'FRENTE', 'BOX', 'GALPAO',
-  'KM', 'TERREO', 'SOBRELOJA', 'EDIFICIO', 'ED', 'TORRE', 'UNIDADE',
+  'APTO', 'APT', 'APARTAMENTO', 'BLOCO', 'CASA', 'SALA', 'LOJA', 'LOTE', 'QUADRA', 'CONJUNTO',
+  'ANDAR', 'FUNDOS', 'FRENTE', 'BOX', 'GALPAO', 'TERREO', 'SOBRELOJA', 'EDIFICIO', 'TORRE', 'UNIDADE',
 ];
 
 // Separa "RUA PAULISTA 498 CASA DOS FUNDOS" ou "RUA X, 123, APTO 4" em rua, número e complemento.

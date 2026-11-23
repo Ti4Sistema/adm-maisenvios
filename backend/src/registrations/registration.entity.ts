@@ -28,7 +28,10 @@ const percent = (name: string) =>
 
 // Os campos do pré-cadastro são descritos em registration-rules.ts.
 // Valores em dinheiro ficam em centavos.
-@Auditable({ name: 'registration' })
+@Auditable({
+  name: 'registration',
+  describe: (row) => row.tradeName || row.legalName || row.document || null,
+})
 @Entity('registrations')
 @Index('idx_registrations_document', ['document'])
 @Check('chk_registrations_type', "type IN ('client', 'smart')")
@@ -62,8 +65,8 @@ export class Registration {
   @text('main_district') mainDistrict: string | null;
   @text('main_city') mainCity: string | null;
   @text('main_state') mainState: string | null;
-  @text('main_address_name') mainAddressName: string | null;
 
+  @flag('has_pickup_address') hasPickupAddress: boolean | null;
   @text('pickup_zip') pickupZip: string | null;
   @text('pickup_number') pickupNumber: string | null;
   @text('pickup_complement') pickupComplement: string | null;
@@ -71,7 +74,6 @@ export class Registration {
   @text('pickup_district') pickupDistrict: string | null;
   @text('pickup_city') pickupCity: string | null;
   @text('pickup_state') pickupState: string | null;
-  @text('pickup_address_name') pickupAddressName: string | null;
 
   @text('package_table') packageTable: string | null;
   @text('reverse_table') reverseTable: string | null;
@@ -93,6 +95,8 @@ export class Registration {
   @flag('whatsapp_notifications') whatsappNotifications: boolean | null;
   @flag('unified_label') unifiedLabel: boolean | null;
   @flag('force_dce') forceDce: boolean | null;
+  @flag('mais_envios_label') maisEnviosLabel: boolean | null;
+  @flag('require_recipient_document') requireRecipientDocument: boolean | null;
 
   @text('contact_name') contactName: string | null;
   @text('mobile_phone') mobilePhone: string | null;
@@ -121,6 +125,11 @@ export class Registration {
   @ManyToOne(() => Administrator, { nullable: true })
   @JoinColumn({ name: 'approved_by_id' })
   approvedBy: Administrator | null;
+
+  // Ocultado: sai da lista principal, mas continua no banco e pode voltar.
+  @Index('idx_registrations_hidden_at')
+  @Column('timestamptz', { name: 'hidden_at', nullable: true })
+  hiddenAt: Date | null;
 
   @Column('uuid', { name: 'created_by_id', nullable: true })
   createdById: string | null;

@@ -11,7 +11,9 @@ export interface Notice {
 export function useRegistrations() {
   const schema = ref<Schema | null>(null);
   const rows = ref<Registration[]>([]);
-  const filters = reactive({ type: '', status: '', search: '' });
+  // hidden: '' mostra a lista principal; 'true', só os ocultados.
+  const filters = reactive({ type: '', status: '', search: '', hidden: '' });
+  const hiddenCount = ref(0);
   const loading = ref(false);
   const loadError = ref('');
   const notice = ref<Notice | null>(null);
@@ -33,7 +35,12 @@ export function useRegistrations() {
     loadError.value = '';
     try {
       await loadSchema();
-      rows.value = await api<Registration[]>('/registrations', { query: { ...filters } });
+      const [list, hidden] = await Promise.all([
+        api<Registration[]>('/registrations', { query: { ...filters } }),
+        api<{ count: number }>('/registrations/hidden/count', { query: { type: filters.type } }),
+      ]);
+      rows.value = list;
+      hiddenCount.value = hidden.count;
     } catch (cause) {
       loadError.value = (cause as Error).message;
     } finally {
@@ -93,10 +100,25 @@ export function useRegistrations() {
     }
   }
 
+  // Ocultar ou mostrar de novo tira a linha da lista que está na tela.
+  async function setHidden(row: Registration, hidden: boolean) {
+    try {
+      await api<Registration>(`/registrations/${row.id}/${hidden ? 'hide' : 'unhide'}`, { method: 'POST' });
+      rows.value = rows.value.filter(({ id }) => id !== row.id);
+      hiddenCount.value += hidden ? 1 : -1;
+      notify('info', hidden ? 'Pré-cadastro ocultado' : 'Pré-cadastro voltou para a lista');
+      return true;
+    } catch (cause) {
+      notify('error', (cause as Error).message);
+      return false;
+    }
+  }
+
   async function remove(row: Registration) {
     try {
       await api(`/registrations/${row.id}`, { method: 'DELETE' });
       rows.value = rows.value.filter(({ id }) => id !== row.id);
+      if (row.hiddenAt) hiddenCount.value -= 1;
       notify('info', 'Pré-cadastro excluído');
       return true;
     } catch (cause) {
@@ -109,6 +131,7 @@ export function useRegistrations() {
     schema,
     rows,
     filters,
+    hiddenCount,
     loading,
     loadError,
     notice,
@@ -119,6 +142,7 @@ export function useRegistrations() {
     save,
     create,
     remove,
+    setHidden,
     approve: (row: Registration) => action(row, 'approve', 'Pré-cadastro aprovado'),
     unapprove: (row: Registration) => action(row, 'unapprove', 'Aprovação desfeita'),
   };

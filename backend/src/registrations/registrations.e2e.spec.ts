@@ -92,7 +92,8 @@ test('o editor preenche por partes e a linha fica pronta sozinha', async () => {
       ],
     }),
   );
-  assert.equal(view.suggested.adminLogin, 'admpdvsmartgui');
+  assert.equal(view.values.adminLogin, 'admpdvsmartgui');
+  assert.equal(view.values.pdvLogin, 'pdvsmartgui');
   assert.equal(view.status, 'draft');
 
   view = await json(
@@ -122,10 +123,9 @@ test('edição simultânea do mesmo campo é conflito; de campos diferentes, nã
   assert.deepEqual(body.conflicts, [{ field: 'tradeName', current: 'LOJA A' }]);
 });
 
-test('campos fixos, desconhecidos e valores inválidos são recusados', async () => {
+test('campos escolhidos no envio, desconhecidos e valores inválidos são recusados', async () => {
   const { id } = await json(await send('POST', '/registrations', sessions.editor, { type: 'smart' }), 201);
   for (const change of [
-    { field: 'insurance', from: null, to: '5' },
     { field: 'beneficiary', from: null, to: 'X' },
     { field: 'inexistente', from: null, to: 'X' },
     { field: 'billingType', from: 'Faturamento Mensal', to: 'anual' },
@@ -133,6 +133,13 @@ test('campos fixos, desconhecidos e valores inválidos são recusados', async ()
     const response = await send('PATCH', `/registrations/${id}`, sessions.editor, { changes: [change] });
     assert.equal(response.status, 400, change.field);
   }
+});
+
+test('campo fixo pode ser alterado quando preciso', async () => {
+  const { id } = await json(await send('POST', '/registrations', sessions.editor, { type: 'smart' }), 201);
+  const change = { changes: [{ field: 'insurance', from: null, to: '5' }] };
+  const view = await json<View>(await send('PATCH', `/registrations/${id}`, sessions.editor, change));
+  assert.equal(view.values.insurance, 5);
 });
 
 test('leitura só consulta; só o admin aprova e edita depois de aprovado', async () => {
@@ -211,5 +218,115 @@ test('colar linhas da planilha Smart mostra a prévia e depois cria', async () =
 
   const list = await json<View[]>(await send('GET', '/registrations?search=colado', sessions.reader));
   assert.equal(list[0].values.mainComplement, 'CASA DOS FUNDOS');
-  assert.ok(list[0].warnings.some(({ field }) => field === 'document'));
+  // CPF/CNPJ repetido em outro pré-cadastro não gera mais aviso.
+  assert.ok(!list[0].warnings.some(({ field }) => field === 'document'));
+});
+
+test('colar a ficha de um cliente cria o pré-cadastro e mostra o que falta', async () => {
+  const text = [
+    'CADASTRO DE NOVO CLIENTE - MAIS ENVIOS',
+    '',
+    'Dados Cadastrais:',
+    'Razão Social: Ficha Colada LTDA',
+    'CNPJ: 11.444.777/0001-61',
+    'Endereço: Rua Doutor Julio Olivier, 389',
+    'CEP: 27913-161',
+    'Bairro: Centro',
+    '',
+    'Contato:',
+    'Nome: Paulo Filho',
+    'Telefone: (21) 99758-0469',
+    'Email: ti@fichacolada.com.br',
+  ].join('\n');
+
+  type Result = { id?: string; status: string; missing: string[]; filled: string[]; values: Record<string, unknown> };
+  const preview = await json<Result>(
+    await send('POST', '/registrations/import/client', sessions.editor, { text, dryRun: true }),
+  );
+  assert.equal(preview.id, undefined);
+  assert.equal(preview.values.mainNumber, '389');
+  assert.equal(preview.values.mobilePhone, '21997580469');
+  assert.ok(preview.filled.includes('legalName'));
+  assert.equal(preview.values.tradeName, 'Ficha Colada LTDA');
+  assert.ok(preview.missing.includes('packageTable'));
+
+  const created = await json<Result>(
+    await send('POST', '/registrations/import/client', sessions.editor, { text, dryRun: false }),
+  );
+  assert.ok(created.id);
+  const view = await json<View>(await send('GET', `/registrations/${created.id}`, sessions.reader));
+  assert.equal(view.values.legalName, 'Ficha Colada LTDA');
+  assert.equal(view.values.billingEmail, 'ti@fichacolada.com.br');
+
+  const blocked = await send('POST', '/registrations/import/client', sessions.reader, { text, dryRun: true });
+  assert.equal(blocked.status, 403);
+  const empty = await send('POST', '/registrations/import/client', sessions.editor, {
+    text: 'nada aqui',
+    dryRun: true,
+  });
+  assert.equal(empty.status, 400);
+});
+
+test('ocultar tira da lista principal e mostra na lista de ocultos', async () => {
+  const created = await json(
+    await send('POST', '/registrations', sessions.editor, {
+      type: 'client',
+      values: { legalName: 'Para Ocultar LTDA' },
+    }),
+    201,
+  );
+  const visible = async () =>
+    (await json<View[]>(await send('GET', '/registrations?type=client&search=ocultar', sessions.reader))).length;
+  const hiddenList = async () =>
+    (await json<View[]>(await send('GET', '/registrations?type=client&search=ocultar&hidden=true', sessions.reader)))
+      .length;
+  assert.equal(await visible(), 1);
+
+  assert.equal((await send('POST', `/registrations/${created.id}/hide`, sessions.reader)).status, 403);
+  const hidden = await json<View & { hiddenAt: string | null }>(
+    await send('POST', `/registrations/${created.id}/hide`, sessions.editor),
+  );
+  assert.ok(hidden.hiddenAt);
+  assert.equal(await visible(), 0);
+  assert.equal(await hiddenList(), 1);
+  const { count } = await json<{ count: number }>(
+    await send('GET', '/registrations/hidden/count?type=client', sessions.reader),
+  );
+  assert.ok(count >= 1);
+
+  await json(await send('POST', `/registrations/${created.id}/unhide`, sessions.editor));
+  assert.equal(await visible(), 1);
+  assert.equal(await hiddenList(), 0);
+});
+
+test('o gráfico da tela inicial conta criados e aprovados por dia', async () => {
+  type Stats = { days: { day: string; created: number; approved: number }[]; previous: { created: number } };
+  const before = await json<Stats>(await send('GET', '/registrations/stats/daily', sessions.reader));
+  assert.equal(before.days.length, 7);
+  await json(await send('POST', '/registrations', sessions.editor, { type: 'client', values: {} }), 201);
+  const after = await json<Stats>(await send('GET', '/registrations/stats/daily?days=30', sessions.reader));
+  assert.equal(after.days.length, 30);
+  const today = (stats: Stats) => stats.days[stats.days.length - 1].created;
+  assert.equal(today(after), today(before) + 1);
+  assert.equal(typeof after.previous.created, 'number');
+  await json(await send('GET', '/registrations/stats/daily?days=12', sessions.reader), 400);
+});
+
+test('a auditoria guarda o nome do pré-cadastro, inclusive depois de excluído', async () => {
+  const created = await json(
+    await send('POST', '/registrations', sessions.editor, { type: 'client', values: { tradeName: 'Excluir Depois' } }),
+    201,
+  );
+  assert.equal((await send('DELETE', `/registrations/${created.id}`, sessions.editor)).status, 204);
+  const logs = await dataSource.manager.find(AuditLog, {
+    where: { entity: 'registration', entityId: created.id },
+    order: { id: 'ASC' },
+  });
+  assert.deepEqual(
+    logs.map(({ action, metadata }) => [action, metadata?.item]),
+    [
+      ['create', 'Excluir Depois'],
+      ['delete', 'Excluir Depois'],
+    ],
+  );
 });

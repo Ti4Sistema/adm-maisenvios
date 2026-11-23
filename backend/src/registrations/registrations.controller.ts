@@ -1,21 +1,13 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { PERMISSIONS } from '../access/permissions';
 import { RequirePermission } from '../access/require-permission.decorator';
 import { CurrentAdministrator } from '../auth/current-administrator.decorator';
 import { SessionAdministrator } from '../auth/session-administrator';
 import {
   CreateRegistrationDto,
+  DailyStatsDto,
+  HiddenCountDto,
+  ImportClientDto,
   ImportSmartDto,
   ListRegistrationsDto,
   UpdateRegistrationDto,
@@ -49,6 +41,39 @@ export class RegistrationsController {
   @RequirePermission(PERMISSIONS.REGISTRATIONS_EDIT)
   importSmart(@Body() dto: ImportSmartDto, @CurrentAdministrator() actor: SessionAdministrator) {
     return this.registrations.importSmart(dto, actor);
+  }
+
+  @Post('import/client')
+  @HttpCode(200)
+  @RequirePermission(PERMISSIONS.REGISTRATIONS_EDIT)
+  importClient(@Body() dto: ImportClientDto, @CurrentAdministrator() actor: SessionAdministrator) {
+    return this.registrations.importClient(dto, actor);
+  }
+
+  @Get('stats/daily')
+  @RequirePermission(PERMISSIONS.REGISTRATIONS_READ)
+  dailyStats(@Query() query: DailyStatsDto) {
+    return this.registrations.dailyStats(query);
+  }
+
+  @Get('hidden/count')
+  @RequirePermission(PERMISSIONS.REGISTRATIONS_READ)
+  hiddenCount(@Query() query: HiddenCountDto) {
+    return this.registrations.hiddenCount(query);
+  }
+
+  @Post(':id/hide')
+  @HttpCode(200)
+  @RequirePermission(PERMISSIONS.REGISTRATIONS_EDIT)
+  hide(@Param('id', ParseUUIDPipe) id: string, @CurrentAdministrator() actor: SessionAdministrator) {
+    return this.registrations.setHidden(id, true, actor);
+  }
+
+  @Post(':id/unhide')
+  @HttpCode(200)
+  @RequirePermission(PERMISSIONS.REGISTRATIONS_EDIT)
+  unhide(@Param('id', ParseUUIDPipe) id: string, @CurrentAdministrator() actor: SessionAdministrator) {
+    return this.registrations.setHidden(id, false, actor);
   }
 
   @Get(':id')

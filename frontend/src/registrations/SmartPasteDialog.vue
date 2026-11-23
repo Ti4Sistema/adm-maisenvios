@@ -23,7 +23,6 @@ const dialog = ref<HTMLDialogElement>();
 const text = ref('');
 const rows = ref<{ line: number; cells: string[] }[]>([]);
 const preview = ref<PreviewItem[]>([]);
-const chosen = ref(new Set<number>());
 const error = ref('');
 const loading = ref(false);
 
@@ -45,12 +44,6 @@ async function analyze(source: string) {
       body: { rows: rows.value, dryRun: true },
     });
     preview.value = result.items;
-    // Possíveis duplicados começam desmarcados.
-    chosen.value = new Set(
-      result.items
-        .filter((item) => !item.skipped && !item.warnings.some((w) => /Já existe|repetido/.test(w)))
-        .map((item) => item.line),
-    );
   } catch (cause) {
     error.value = (cause as Error).message;
   } finally {
@@ -65,20 +58,14 @@ function onPaste(event: ClipboardEvent) {
   analyze(pasted);
 }
 
-function toggle(line: number) {
-  const next = new Set(chosen.value);
-  if (next.has(line)) next.delete(line);
-  else next.add(line);
-  chosen.value = next;
-}
-
+// Cria todas as linhas lidas, sem marcar uma a uma (as ignoradas, como o cabeçalho, ficam de fora).
 async function confirm() {
   loading.value = true;
   error.value = '';
   try {
     const result = await api<{ created: number }>('/registrations/import/smart', {
       method: 'POST',
-      body: { rows: rows.value.filter((row) => chosen.value.has(row.line)), dryRun: false },
+      body: { rows: rows.value.filter((row) => importable.value.some(({ line }) => line === row.line)), dryRun: false },
     });
     dialog.value?.close();
     emit('created', result.created);
@@ -132,7 +119,6 @@ defineExpose({ open });
         <table class="w-full text-left text-sm">
           <thead class="sticky top-0 bg-surface text-xs text-muted">
             <tr>
-              <th class="w-8 px-2 py-2" />
               <th class="px-2 py-2 font-medium">Linha</th>
               <th class="px-2 py-2 font-medium">Nome Fantasia</th>
               <th class="px-2 py-2 font-medium">CNPJ</th>
@@ -144,15 +130,6 @@ defineExpose({ open });
           </thead>
           <tbody class="divide-y divide-line">
             <tr v-for="item in preview" :key="item.line" :class="{ 'text-muted': item.skipped }">
-              <td class="px-2 py-2 align-top">
-                <input
-                  v-if="!item.skipped"
-                  type="checkbox"
-                  :checked="chosen.has(item.line)"
-                  :aria-label="`Importar linha ${item.line}`"
-                  @change="toggle(item.line)"
-                />
-              </td>
               <td class="px-2 py-2 align-top">{{ item.line }}</td>
               <template v-if="item.skipped">
                 <td colspan="6" class="px-2 py-2 align-top">Ignorada: {{ item.skipped }}</td>
@@ -177,7 +154,9 @@ defineExpose({ open });
                   </span>
                 </td>
                 <td class="px-2 py-2 align-top text-xs">
-                  <p v-if="item.missing?.length" class="text-danger">Faltam: {{ item.missing.map(label).join(', ') }}</p>
+                  <p v-if="item.missing?.length" class="text-danger">
+                    Faltam: {{ item.missing.map(label).join(', ') }}
+                  </p>
                   <p v-for="issue in item.errors" :key="issue.field" class="text-danger">
                     {{ label(issue.field) }}: {{ issue.message }}
                   </p>
@@ -199,8 +178,8 @@ defineExpose({ open });
           Colar outras linhas
         </button>
         <AppButton variant="secondary" @click="dialog?.close()">Cancelar</AppButton>
-        <AppButton v-if="importable.length" :loading="loading" :disabled="!chosen.size" @click="confirm">
-          Criar {{ chosen.size }} pré-cadastro(s)
+        <AppButton v-if="importable.length" :loading="loading" @click="confirm">
+          Criar {{ importable.length }} pré-cadastro(s)
         </AppButton>
       </div>
     </div>

@@ -63,6 +63,24 @@ export class ListRegistrationsDto {
   @IsString()
   @MaxLength(100)
   search?: string;
+
+  // "true" lista só os ocultados; sem o filtro, só os visíveis.
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  hidden?: string;
+}
+
+export class HiddenCountDto {
+  @IsOptional()
+  @IsIn(TYPES)
+  type?: string;
+}
+
+// Período do gráfico da tela inicial: últimos 7 ou 30 dias.
+export class DailyStatsDto {
+  @IsOptional()
+  @IsIn(['7', '30'])
+  days?: string;
 }
 
 export class PastedRowDto {
@@ -82,6 +100,16 @@ export class ImportSmartDto {
   @ValidateNested({ each: true })
   @Type(() => PastedRowDto)
   rows: PastedRowDto[];
+
+  @IsBoolean()
+  dryRun: boolean;
+}
+
+export class ImportClientDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Cole o texto da ficha do cliente' })
+  @MaxLength(20000, { message: 'Texto grande demais para uma ficha' })
+  text: string;
 
   @IsBoolean()
   dryRun: boolean;

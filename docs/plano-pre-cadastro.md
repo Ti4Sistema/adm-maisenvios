@@ -33,7 +33,7 @@ Legenda — **Obr.**: obrigatório para ficar *Pronto*. **Fixo**: preenchido pel
 
 | Campo | Cliente | Smart | Regras |
 |---|---|---|---|
-| Nome Fantasia | Obr. | Obr. (col. C) | Máx. 30 caracteres no portal → avisar e bloquear acima disso |
+| Nome Fantasia | Obr. (na ficha colada, sem Nome Fantasia usa a Razão Social) | Obr. (col. C) | Máx. 30 caracteres no portal → avisar e bloquear acima disso |
 | Razão Social | Obr. | Obr. (col. E) | |
 | CPF/CNPJ | Obr. | Obr. (col. F) | Validar dígitos; avisar se já existe outro pré-cadastro com o mesmo documento |
 | Tipo Cliente | Obr. (Cliente/Licença/Filial) | Fixo: Cliente | |
@@ -43,9 +43,9 @@ Legenda — **Obr.**: obrigatório para ficar *Pronto*. **Fixo**: preenchido pel
 
 | Campo | Cliente | Smart | Regras |
 |---|---|---|---|
-| Tipo de faturamento | Obr. | Padrão: Mensal (col. W) | Mensal, Quinzenal, Semanal, Diário, À vista |
+| Tipo de faturamento | Obr. | Padrão: Mensal (col. W) | Mensal ou Quinzenal |
 | E-mail financeiro | Obr. | Obr. (col. X) | Formato de e-mail |
-| Dias a vencer | Obr. | Fixo: 10 | Inteiro ≥ 1 |
+| Dias a vencer | Fixo: 10 | Fixo: 10 | |
 | Beneficiário | Padrão: MAIS ENVIOS INTELIGENCIA LOGISTICA LTDA | No envio: 1º disponível na licença | Lista |
 
 ### 2.3 Endereços
@@ -53,7 +53,7 @@ Legenda — **Obr.**: obrigatório para ficar *Pronto*. **Fixo**: preenchido pel
 | Campo | Cliente | Smart | Regras |
 |---|---|---|---|
 | Endereço principal | Obr. | Obr. (col. R–V) | CEP, rua, número, complemento, bairro, cidade, UF |
-| Endereço de coleta | Opcional | — | Não pode repetir o CEP do principal (o portal recusa) |
+| Endereço de coleta | Sim/Não (padrão: não); ligado, mostra e cobra CEP e número da coleta | — | Não pode repetir o CEP do principal (o portal recusa) |
 
 - **Obrigatórios: CEP (8 dígitos) e número.** Complemento é opcional.
 - O portal busca rua, bairro, cidade e UF pelo CEP no momento do cadastro. Aqui esses campos ficam só para conferência: a tela consulta o ViaCEP ao digitar o CEP e mostra o resultado, sem bloquear se a consulta falhar.
@@ -65,14 +65,14 @@ Legenda — **Obr.**: obrigatório para ficar *Pronto*. **Fixo**: preenchido pel
 |---|---|---|---|
 | Tabela Pacote | Obr. | Fixo: TABELA MAIS ENVIOS À VISTA - PROMOCAO DE INAUGURAÇÃO | Lista |
 | Tabela Pacote Reversa | Obr. | Fixo: TABELA MAIS ENVIOS À VISTA | Lista |
-| Cartão de postagem (contrato + cartão) | Obr. | No envio: o único contrato e cartão disponíveis na licença | Sempre **Principal = Sim** |
-| CNPJ de faturamento | Padrão: = CPF/CNPJ | Fixo: = CNPJ | Diferente do documento → ponto de atenção |
+| Cartão de postagem (contrato + cartão) | Fixo: contrato 9912701275, cartão 0079505155 | No envio: o único contrato e cartão disponíveis na licença | Sempre **Principal = Sim** |
+| CNPJ de faturamento | Calculado: = CPF/CNPJ | Calculado: = CNPJ | |
 | Limite de crédito | Obr. | Fixo: R$ 30.000,00 | Valor em reais |
-| Seguro | Padrão: 1% | Fixo: 2% | Smart vai com 2% direto na integração, sem o ajuste posterior |
-| Dias de validade da reversa | Padrão: 90 | Fixo: 90 | |
+| Seguro | Fixo: 1% | Fixo: 2% | Smart vai com 2% direto na integração, sem o ajuste posterior |
+| Dias de validade da reversa | Fixo: 90 | Fixo: 90 | |
 | Não cobrar custo de postagem | Padrão: não | Fixo: não | |
-| Permitir etiquetas lógicas | Opcional | — | |
-| Boleto separado para a filial | Opcional (só Filial) | — | |
+| Permitir etiquetas lógicas | Padrão: não (editável) | — | |
+| Boleto separado para a filial | Padrão: não (editável) | — | |
 
 ### 2.5 Serviços
 
@@ -86,10 +86,12 @@ Ignorar serviços marcados como "NÃO UTILIZAR" / "INDISPONÍVEL".
 
 | Campo | Cliente | Smart |
 |---|---|---|
-| Inscrição Estadual / Municipal | Opcional (aviso se vazio) | — |
-| Notificações via WhatsApp | Opcional | Fixo: sim |
-| Etiqueta unificada DANFE/DC-e | Opcional | Fixo: não |
-| Emitir DC-e nas integrações | Opcional | Fixo: não |
+| Inscrição Estadual / Municipal | Opcional | — |
+| Notificações via WhatsApp | Padrão: sim (editável) | Fixo: sim |
+| Etiqueta unificada DANFE/DC-e | Padrão: sim (editável) | Fixo: não |
+| Emitir DC-e nas integrações | Padrão: não (editável) | Fixo: não |
+| Etiqueta +Envios | Padrão: não (editável) | Fixo: não |
+| Exigir CPF/CNPJ do destinatário nas telas (não bloqueia API/integrações) | Padrão: não (editável) | Fixo: não |
 
 ### 2.7 Contatos
 

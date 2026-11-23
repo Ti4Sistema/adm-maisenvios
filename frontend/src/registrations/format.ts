@@ -12,10 +12,16 @@ export function isEditableMode(rule: TypeRule) {
   return rule.mode === 'required' || rule.mode === 'optional';
 }
 
+// Campo que depende de um Sim/Não (coleta, malha) só aparece com ele ligado.
+export function isShown(field: SchemaField, row: Registration) {
+  return !field.shownWhen || row.values[field.shownWhen] === true;
+}
+
 // O valor que aparece na célula e se ele é só uma sugestão do sistema.
 export function cellValue(field: SchemaField, row: Registration): { value: FieldValue; suggested: boolean } {
   const rule = ruleOf(field, row);
-  if (rule.mode === 'fixed') return { value: rule.value ?? null, suggested: false };
+  // Fixo: vale o da regra, a não ser que tenha sido alterado neste cadastro.
+  if (rule.mode === 'fixed') return { value: row.values[field.key] ?? rule.value ?? null, suggested: false };
   const stored = row.values[field.key] ?? null;
   if (stored !== null) return { value: stored, suggested: false };
   const suggestion = row.suggested[field.key] ?? null;
@@ -81,6 +87,17 @@ export function editText(field: SchemaField, value: FieldValue): string {
     default:
       return String(value);
   }
+}
+
+// Padrão do cadastro de clientes: o limite de crédito é sempre 50% acima do valor digitado
+// (5.000 vira 7.500). Só vale para valor novo digitado no campo; texto que não é número
+// segue como está para a API apontar o erro.
+export function withCreditMargin(text: string): string {
+  let clean = text.replace(/R\$|\s/gi, '');
+  if (clean.includes(',')) clean = clean.replace(/\./g, '').replace(',', '.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(clean)) clean = clean.replace(/\./g, '');
+  if (!/^\d+(\.\d+)?$/.test(clean)) return text;
+  return decimal.format(Math.round(Number(clean) * 150) / 100);
 }
 
 // Ao editar a lista de códigos, mantém o spread e a malha dos serviços que continuam.

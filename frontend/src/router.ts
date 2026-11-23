@@ -15,9 +15,17 @@ export const router = createRouter({
       component: () => import('./layouts/AppLayout.vue'),
       children: [
         { path: '', component: () => import('./pages/HomePage.vue') },
+        { path: 'pre-cadastros', redirect: '/pre-cadastros/clientes' },
         {
-          path: 'pre-cadastros',
+          path: 'pre-cadastros/clientes',
           component: () => import('./pages/RegistrationsPage.vue'),
+          props: { type: 'client' },
+          meta: { permission: PERMISSIONS.REGISTRATIONS_READ },
+        },
+        {
+          path: 'pre-cadastros/smart',
+          component: () => import('./pages/RegistrationsPage.vue'),
+          props: { type: 'smart' },
           meta: { permission: PERMISSIONS.REGISTRATIONS_READ },
         },
         {
